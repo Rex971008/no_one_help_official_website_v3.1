@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <title>工作人員後台</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        h1 { text-align: center; }
+        #messageList { 
+            border: 1px solid #ccc; 
+            padding: 10px; 
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #f9f9f9;
+        }
+        .message-item { 
+            border-bottom: 1px solid #eee; 
+            padding: 15px; 
+            background-color: #fff;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .message-item:last-child { 
+            border-bottom: none; 
+        }
+        .message-item p {
+            margin: 5px 0;
+        }
+        .message-item input[type="text"] {
+            width: calc(100% - 80px);
+            padding: 8px;
+            margin-right: 5px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+        }
+        .message-item button {
+            padding: 8px 12px;
+            border: none;
+            background-color: #28a745;
+            color: white;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .message-item button:hover {
+            background-color: #218838;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- HTML 結構 -->
+    <h1>客服訊息中心</h1>
+    <div id="messageList">
+        <p>正在載入訊息...</p>
+    </div>
+
+    <!-- JavaScript 腳本 -->
+    <script>
+        const messageList = document.getElementById('messageList');
+
+        if (!messageList) {
+            console.error("嚴重錯誤：找不到 ID 為 'messageList' 的 HTML 元素！");
+            alert("頁面結構錯誤，無法載入應用程式。");
+        }
+
+        // 功能一：獲取並渲染訊息
+        async function fetchAndRenderMessages() {
+            try {
+                const response = await fetch('http://localhost:3000/api/messages');
+                if (!response.ok) {
+                    throw new Error(`網路錯誤: ${response.status}`);
+                }
+                const messages = await response.json();
+                
+                // 如果沒有訊息，顯示提示
+                if (messages.length === 0 && messageList.querySelector('.message-item') === null) {
+                    messageList.innerHTML = '<p>目前沒有任何訊息。</p>';
+                }
+
+                // 遍歷從後端拿到的所有訊息
+                messages.forEach(msg => {
+                    // 檢查畫面上是否已存在這個訊息的區塊
+                    let itemDiv = document.getElementById(`message-item-${msg.id}`);
+
+                    if (itemDiv) {
+                        // **更新模式**：如果區塊已存在，只更新需要變動的部分
+                        const replyTextSpan = itemDiv.querySelector(`#reply-text-${msg.id}`);
+                        const replySectionDiv = itemDiv.querySelector(`#reply-section-${msg.id}`);
+
+                        if (replyTextSpan) {
+                            replyTextSpan.innerHTML = msg.staffReply || '<i>尚未回覆</i>';
+                        }
+
+                        // 如果訊息已經被回覆了，就移除整個回覆區塊
+                        if (msg.staffReply && replySectionDiv) {
+                            replySectionDiv.remove();
+                        }
+                    } else {
+                        // **創建模式**：如果區塊不存在，就創建一個全新的
+                        // 如果是第一次創建，先清空"載入中"或"無訊息"的提示
+                        if(messageList.querySelector('.message-item') === null){
+                            messageList.innerHTML = '';
+                        }
+
+                        itemDiv = document.createElement('div');
+                        itemDiv.id = `message-item-${msg.id}`;
+                        itemDiv.className = 'message-item';
+
+                        // 準備回覆區塊的 HTML (只有未回覆的訊息需要)
+                        let replySectionHTML = '';
+                        if (!msg.staffReply) {
+                            replySectionHTML = `
+                                <div id="reply-section-${msg.id}">
+                                    <input type="text" id="replyInput-${msg.id}" placeholder="請在此輸入回覆...">
+                                    <button onclick="sendReply(${msg.id})">送出回覆</button>
+                                </div>
+                            `;
+                        }
+                        
+                        // 組合出完整的訊息區塊 HTML
+                        itemDiv.innerHTML = `
+                            <p><b>訊息 ID: ${msg.id}</b></p>
+                            <p>顧客提問: ${msg.customerMessage}</p>
+                            <p>你的回覆: <span id="reply-text-${msg.id}">${msg.staffReply || '<i>尚未回覆</i>'}</span></p>
+                            ${replySectionHTML}
+                        `;
+                        
+                        messageList.appendChild(itemDiv);
+                    }
+                });
+            } catch (error) {
+                console.error('獲取訊息失敗:', error);
+                if (messageList) {
+                    messageList.innerHTML = '<p style="color: red;">無法載入訊息。請確認後端伺服器已啟動，並檢查主控台(Console)錯誤。</p>';
+                }
+            }
+        }
+
+        // 功能二：送出回覆
+        async function sendReply(messageId) {
+            const replyInput = document.getElementById(`replyInput-${messageId}`);
+            if (!replyInput) return; // 防呆
+
+            const replyText = replyInput.value;
+            if (!replyText) {
+                alert('回覆內容不能為空！');
+                return;
+            }
+
+            try {
+                await fetch('http://localhost:3000/api/reply', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ messageId: messageId, replyText: replyText })
+                });
+                fetchAndRenderMessages(); // 回覆成功後，立刻刷新一次
+            } catch (error) {
+                console.error('回覆失敗:', error);
+                alert('回覆傳送失敗，請稍後再試。');
+            }
+        }
+
+        // 功能三：設定定時器
+        setInterval(fetchAndRenderMessages, 3000);
+        
+        // 頁面首次載入時，執行一次
+        fetchAndRenderMessages();
+    </script>
+
+</body>
+</html>
