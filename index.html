@@ -20,6 +20,7 @@
             <li style="--i:1;"><a href="#" data-target="page-home" class="sidebar-link active-link">主頁</a></li>
             <li style="--i:2;"><a href="#" data-target="page-menu" class="sidebar-link">合作店家一覽</a></li>
             <li style="--i:3;"><a href="#" data-target="page-customer-service" class="sidebar-link">線上客服</a></li>
+            <li style="--i:4;"><a href="#" data-target="page-calendar" class="sidebar-link">點餐月曆</a></li>
         </ul>
         <div class="sidebar-info"><p>與我們共同打造更美好的外送體驗</p><p>© 2024 外送沒人幫. All Rights Reserved.</p></div>
     </nav>
@@ -51,7 +52,6 @@
                 </section>
             </div>
             
-            <!-- ======================= 新增/修改的頁面區塊 ======================= -->
             <div id="page-login" class="page-content">
                 <section>
                     <div class="container">
@@ -95,6 +95,37 @@
                             <div id="chat-input-area">
                                 <input type="text" id="messageInput" placeholder="請輸入訊息...">
                                 <button id="sendButton">傳送</button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+            
+            <div id="page-calendar" class="page-content">
+                <section>
+                    <div class="container">
+                        <div style="text-align:center;">
+                            <h2 class="section-title">點餐月曆</h2>
+                            <p class="section-subtitle">請點擊日期查看或進行點餐。</p>
+                        </div>
+
+                        <div class="calendar-container">
+                            <div class="calendar-header">
+                                <button id="prev-month-btn"><</button>
+                                <h3 id="current-month-year"></h3>
+                                <button id="next-month-btn">></button>
+                            </div>
+                            <div class="calendar-weekdays">
+                                <div>日</div>
+                                <div>一</div>
+                                <div>二</div>
+                                <div>三</div>
+                                <div>四</div>
+                                <div>五</div>
+                                <div>六</div>
+                            </div>
+                            <div class="calendar-grid" id="calendar-grid">
+                                <!-- JavaScript 將會在這裡動態生成日期 -->
                             </div>
                         </div>
                     </div>
