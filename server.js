@@ -1,94 +1,149 @@
-/* 檔案: server.js (完整功能版) */
+/* 檔案: server.js (v2 - 多使用者版本) */
 
-// 1. 引入需要的套件
 const express = require('express');
 const cors = require('cors');
 
-// 2. 建立 Express 應用程式
 const app = express();
-const port = 3000; // Render 會自動忽略這個，並使用它自己的 PORT，但在本地開發時有用
+const port = 3000;
 
-// 3. 使用中介軟體 (Middleware)
-app.use(cors());          // 允許所有來源的跨域請求
-app.use(express.json());  // 讓 Express 能夠解析 JSON 格式的請求內容
-
-// ===============================================
-//        簡易的記憶體資料庫 (In-Memory Database)
-// ===============================================
-// 我們的訊息都會儲存在這個陣列裡。
-// 伺服器重啟後，訊息會消失。
-let messages = []; 
-let messageIdCounter = 1; // 用來產生唯一的訊息 ID
+app.use(cors());
+app.use(express.json());
 
 // ===============================================
-//               API 路由 (Endpoints)
+//        新的資料庫結構 (In-Memory)
+// ===============================================
+let users = []; // 儲存使用者 { id, username, password }
+let userIdCounter = 1;
+
+// 使用一個物件來儲存每個使用者的對話
+// 鍵(key)是 userId，值(value)是該使用者的訊息陣列
+// { '1': [{...}, {...}], '2': [{...}] }
+let conversations = {};
+let messageIdCounter = 1;
+
+// ===============================================
+//               使用者認證 API
 // ===============================================
 
-// --- API 1: 顧客發送新訊息 ---
-// 當收到 POST 請求送到 /api/message 路徑時...
-app.post('/api/message', (req, res) => {
-  // 從請求的 body 中取出顧客傳來的訊息文字
-  const userMessage = req.body.message;
-  
-  // 基本的驗證：確保訊息不是空的
-  if (!userMessage || userMessage.trim() === '') {
-    return res.status(400).json({ error: '訊息不能為空' });
-  }
-
-  // 建立一個新的訊息物件
-  const newMessage = {
-    id: messageIdCounter++,       // 使用目前的計數器作為 ID，然後將計數器加 1
-    customerMessage: userMessage, // 儲存顧客訊息
-    staffReply: ''                // 工作人員的回覆一開始是空的字串
-  };
-
-  // 將這個新的訊息物件加入到我們的 messages 陣列中
-  messages.push(newMessage);
-
-  // 在後端日誌中印出紀錄，方便我們偵錯
-  console.log(`收到新訊息 #${newMessage.id}: ${userMessage}`);
-  
-  // 回傳 HTTP 狀態碼 201 (Created) 並附上剛建立的訊息物件
-  res.status(201).json(newMessage);
+// --- API: 註冊 ---
+app.post('/api/auth/register', (req, res) => {
+    const { username, password } = req.body;
+    if (!username || !password) {
+        return res.status(400).json({ success: false, message: '用戶名和密碼不能為空' });
+    }
+    // 檢查用戶名是否已被使用
+    const existingUser = users.find(u => u.username === username);
+    if (existingUser) {
+        return res.status(409).json({ success: false, message: '該用戶名已被註冊' });
+    }
+    const newUser = {
+        id: userIdCounter++,
+        username,
+        password // 真實專案中，密碼需要加密！這裡為了簡單教學先用明文。
+    };
+    users.push(newUser);
+    conversations[newUser.id.toString()] = []; // 為新用戶建立一個空的對話紀錄
+    console.log(`新用戶註冊成功: ${username} (ID: ${newUser.id})`);
+    res.status(201).json({ success: true, message: '註冊成功' });
 });
 
+// --- API: 登入 ---
+app.post('/api/auth/login', (req, res) => {
+    const { username, password } = req.body;
+    const user = users.find(u => u.username === username && u.password === password);
 
-// --- API 2: 工作人員回覆特定訊息 ---
-// 當收到 POST 請求送到 /api/reply 路徑時...
-app.post('/api/reply', (req, res) => {
-  // 從請求的 body 中取出要回覆的訊息 ID 和回覆的文字
-  const { messageId, replyText } = req.body;
+    if (user) {
+        console.log(`用戶登入成功: ${username}`);
+        // 登入成功，回傳一個簡易的 "Token" (這裡我們直接用 userId)
+        res.json({ success: true, message: '登入成功', token: user.id });
+    } else {
+        res.status(401).json({ success: false, message: '用戶名或密碼錯誤' });
+    }
+});
 
-  // 使用 Array.find() 方法在 messages 陣列中尋找 ID 相符的訊息
-  // parseInt() 是因為從前端傳來的 ID 可能是字串，我們要把它轉成數字來比對
-  const messageToReply = messages.find(m => m.id === parseInt(messageId));
+// ===============================================
+//          新的客服訊息 API (需要認證)
+// ===============================================
+// 這是一個 "中介軟體"，用來保護需要登入才能訪問的 API
+// 它會檢查請求的 Header 中是否有合法的 token (也就是 userId)
+const authenticate = (req, res, next) => {
+    const token = req.headers['authorization'];
+    if (!token) {
+        return res.status(401).json({ success: false, message: '未提供授權 token' });
+    }
+    // 簡單的驗證，檢查 token (userId) 是否存在
+    const user = users.find(u => u.id.toString() === token);
+    if (!user) {
+        return res.status(403).json({ success: false, message: '無效的 token' });
+    }
+    // 將驗證過的 userId 存入 req 中，方便後續 API 使用
+    req.userId = token;
+    next(); // 驗證通過，繼續執行下一個函式 (真正的 API)
+};
 
-  if (messageToReply) {
-    // 如果找到了訊息，就把它的 staffReply 屬性更新成新的回覆內容
-    messageToReply.staffReply = replyText;
+// --- API: 獲取特定使用者的訊息 ---
+// 注意，我們在真正執行 API 之前，先執行了 authenticate 中介軟體
+app.get('/api/messages', authenticate, (req, res) => {
+    const userId = req.userId; // 從 authenticate 中介軟體取得
+    const userConversation = conversations[userId] || [];
+    res.json(userConversation);
+});
+
+// --- API: 特定使用者發送新訊息 ---
+app.post('/api/message', authenticate, (req, res) => {
+    const userId = req.userId;
+    const { message } = req.body;
+
+    const newMessage = {
+        id: messageIdCounter++,
+        customerMessage: message,
+        staffReply: ''
+    };
+    conversations[userId].push(newMessage);
+
+    console.log(`用戶 #${userId} 發送新訊息: ${message}`);
+    res.status(201).json(newMessage);
+});
+
+// ===============================================
+//              工作人員專用 API
+// ===============================================
+// (為了簡化，我們先不做工作人員的登入，假設他們能直接訪問)
+
+// --- API: 工作人員獲取所有人的對話 ---
+app.get('/api/admin/conversations', (req, res) => {
+    // 格式化資料，方便前端使用
+    const allConversations = Object.keys(conversations).map(userId => {
+        const user = users.find(u => u.id.toString() === userId);
+        return {
+            userId: userId,
+            username: user ? user.username : '未知用戶',
+            messages: conversations[userId]
+        };
+    });
+    res.json(allConversations);
+});
+
+// --- API: 工作人員回覆訊息 ---
+app.post('/api/admin/reply', (req, res) => {
+    const { userId, messageId, replyText } = req.body;
     
-    // 在後端日誌中印出紀錄
-    console.log(`工作人員回覆訊息 #${messageId}: ${replyText}`);
-    
-    // 將更新後的訊息物件回傳給前端
-    res.json(messageToReply);
-  } else {
-    // 如果沒找到對應的 ID，就回傳 404 (Not Found) 錯誤
-    res.status(404).json({ error: '找不到該訊息 ID' });
-  }
+    const userConversation = conversations[userId];
+    if (!userConversation) {
+        return res.status(404).json({ success: false, message: '找不到該用戶的對話' });
+    }
+
+    const messageToReply = userConversation.find(m => m.id === messageId);
+    if (messageToReply) {
+        messageToReply.staffReply = replyText;
+        console.log(`工作人員回覆用戶 #${userId} 的訊息 #${messageId}: ${replyText}`);
+        res.json({ success: true, updatedMessage: messageToReply });
+    } else {
+        res.status(404).json({ success: false, message: '在該用戶對話中找不到該訊息ID' });
+    }
 });
 
-
-// --- API 3: 所有人獲取所有訊息 ---
-// 當收到 GET 請求送到 /api/messages 路徑時...
-app.get('/api/messages', (req, res) => {
-  // 直接將整個 messages 陣列以 JSON 格式回傳
-  res.json(messages);
-});
-
-
-// 4. 啟動伺服器
-// 讓伺服器開始監聽指定的 port，並在啟動成功後執行一個回呼函式
+// 啟動伺服器
 app.listen(port, () => {
-  console.log(`伺服器正在 http://localhost:${port} 上運行`);
+    console.log(`[多使用者版本] 伺服器正在 http://localhost:${port} 上運行`);
 });
