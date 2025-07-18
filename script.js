@@ -253,7 +253,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const message = messageInput.value.trim();
         if (!message) return;
         try {
-            await fetch('http://localhost:3000/api/message', {
+            await fetch('https://no-one-help-official-website-v3-1.onrender.com/api/message', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -286,7 +286,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!chatBox) return; // 如果沒有 chatBox，直接返回
 
     try {
-        const response = await fetch('http://localhost:3000/api/messages');
+        const response = await fetch('https://no-one-help-official-website-v3-1.onrender.com/api/messages');
         if (!response.ok) {
             throw new Error(`網路錯誤: ${response.status}`);
         }
