@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <title>工作人員後台 (v4 - 隔離修正)</title>
-    <!-- CSS 樣式與上一版完全相同，此處省略以節省篇幅 -->
     <style>
         :root { --bg-color: #121212; --surface-color: #1e1e1e; --primary-color: #f0c419; --text-color: #e0e0e0; --text-secondary-color: #a0a0a0; --font-main: 'Noto Sans TC', sans-serif; --border-radius: 12px; --border-color: rgba(255, 255, 255, 0.1); }
         body { font-family: var(--font-main); background-color: var(--bg-color); color: var(--text-color); margin: 0; padding: 2rem; }
@@ -31,178 +30,64 @@
 </head>
 <body>
     <div class="admin-panel">
-        <aside class="sidebar">
-            <header class="sidebar-header">
-                <h2>顧客對話列表</h2>
-            </header>
-            <ul id="user-list"></ul>
-        </aside>
-
-        <main class="chat-view">
-            <header class="chat-header">
-                <h2 id="chat-header-title">選擇一個對話</h2>
-            </header>
-            <div id="chat-window">
-                <p id="chat-placeholder">請從左側選擇一位顧客以查看對話紀錄。</p>
-            </div>
-        </main>
+        <aside class="sidebar"><header class="sidebar-header"><h2>顧客對話列表</h2></header><ul id="user-list"></ul></aside>
+        <main class="chat-view"><header class="chat-header"><h2 id="chat-header-title">選擇一個對話</h2></header><div id="chat-window"><p id="chat-placeholder">請從左側選擇一位顧客以查看對話紀錄。</p></div></main>
     </div>
-
     <script>
         const API_BASE_URL = 'https://no-one-help-official-website-v3-1.onrender.com'; // 部署時記得改成 Render 網址
         const userListEl = document.getElementById('user-list');
         const chatHeaderTitleEl = document.getElementById('chat-header-title');
         const chatWindowEl = document.getElementById('chat-window');
-
         let allConversationsData = []; 
         let currentSelectedUserId = null;
         let fetchInterval;
-
-        // --- 功能 1: 渲染/更新左側使用者列表 (邏輯簡化) ---
         function renderUserList() {
-            const currentActiveUser = userListEl.querySelector('.active');
-            // 儲存當前活躍用戶ID，以便重繪後恢復
-            const currentActiveId = currentActiveUser ? currentActiveUser.dataset.userId : null;
-            
+            const currentActiveId = currentSelectedUserId;
             userListEl.innerHTML = '';
-            if (allConversationsData.length === 0) {
-                userListEl.innerHTML = '<li class="user-item">尚無任何對話</li>';
-                return;
-            }
-
+            if (allConversationsData.length === 0) { userListEl.innerHTML = '<li class="user-item">尚無任何對話</li>'; return; }
             allConversationsData.forEach(convo => {
-                const li = document.createElement('li');
-                li.className = 'user-item';
-                li.textContent = convo.username;
-                li.dataset.userId = convo.userId;
-                
-                // 恢復活躍狀態
-                if (convo.userId === currentActiveId) {
-                    li.classList.add('active');
-                }
-
+                const li = document.createElement('li'); li.className = 'user-item'; li.textContent = convo.username; li.dataset.userId = convo.userId;
+                if (convo.userId === currentActiveId) { li.classList.add('active'); }
                 li.addEventListener('click', () => {
-                    if (currentSelectedUserId !== convo.userId) {
-                        currentSelectedUserId = convo.userId;
-                        document.querySelectorAll('.user-item').forEach(item => item.classList.remove('active'));
-                        li.classList.add('active');
-                        renderChatWindow();
-                    }
+                    if (currentSelectedUserId !== convo.userId) { currentSelectedUserId = convo.userId; renderUserList(); renderChatWindow(); }
                 });
                 userListEl.appendChild(li);
             });
         }
-        
-        // --- 功能 2: 渲染右側聊天視窗 (已修正) ---
         function renderChatWindow() {
-            if (!currentSelectedUserId) {
-                chatHeaderTitleEl.textContent = '選擇一個對話';
-                chatWindowEl.innerHTML = '<p id="chat-placeholder">請從左側選擇一位顧客以查看對話紀錄。</p>';
-                return;
-            }
-            
+            if (!currentSelectedUserId) { chatHeaderTitleEl.textContent = '選擇一個對話'; chatWindowEl.innerHTML = '<p id="chat-placeholder">請從左側選擇一位顧客以查看對話紀錄。</p>'; return; }
             const conversation = allConversationsData.find(c => c.userId === currentSelectedUserId);
-            if (!conversation) {
-                // 如果在資料更新後，當前選擇的用戶消失了，就重置
-                chatHeaderTitleEl.textContent = '用戶不存在';
-                chatWindowEl.innerHTML = '<p id="chat-placeholder">該用戶對話已不存在。</p>';
-                return;
-            }
-
-            // ★★★★★ 關鍵修正：每次渲染前，先徹底清空畫布！ ★★★★★
+            if (!conversation) { chatHeaderTitleEl.textContent = '用戶不存在'; chatWindowEl.innerHTML = '<p id="chat-placeholder">該用戶對話已不存在。</p>'; return; }
             chatWindowEl.innerHTML = ''; 
-
             chatHeaderTitleEl.textContent = `與 ${conversation.username} 的對話`;
-
-            if (conversation.messages.length === 0) {
-                chatWindowEl.innerHTML = '<p id="chat-placeholder">此用戶尚未發送任何訊息。</p>';
-                return;
-            }
-             
+            if (conversation.messages.length === 0) { chatWindowEl.innerHTML = '<p id="chat-placeholder">此用戶尚未發送任何訊息。</p>'; return; }
             conversation.messages.forEach(msg => {
-                const groupDiv = document.createElement('div');
-                groupDiv.className = 'message-group';
-
+                const groupDiv = document.createElement('div'); groupDiv.className = 'message-group';
                 let answerHTML = '';
-                if (msg.staffReply) {
-                    answerHTML = `<p><b>您的回覆:</b> ${msg.staffReply}</p>`;
-                } else {
-                    // 保留當前輸入框的值，雖然刷新會重繪，但頻率不高，體驗尚可
-                    answerHTML = `
-                        <p><b>您的回覆:</b> <i>尚未回覆</i></p>
-                        <div class="reply-area">
-                            <input type="text" id="reply-input-${msg.id}" placeholder="請在此輸入回覆...">
-                            <button onclick="sendReply('${currentSelectedUserId}', ${msg.id})">送出</button>
-                        </div>
-                    `;
-                }
-
-                groupDiv.innerHTML = `
-                    <div class="customer-question">
-                        <p><b>顧客 (ID: ${msg.id}):</b> ${msg.customerMessage}</p>
-                    </div>
-                    <div class="staff-answer">${answerHTML}</div>
-                `;
+                if (msg.staffReply) { answerHTML = `<p><b>您的回覆:</b> ${msg.staffReply}</p>`; } 
+                else { answerHTML = `<p><b>您的回覆:</b> <i>尚未回覆</i></p><div class="reply-area"><input type="text" id="reply-input-${msg.id}" placeholder="請在此輸入回覆..."><button onclick="sendReply('${currentSelectedUserId}', ${msg.id})">送出</button></div>`; }
+                groupDiv.innerHTML = `<div class="customer-question"><p><b>顧客 (ID: ${msg.id}):</b> ${msg.customerMessage}</p></div><div class="staff-answer">${answerHTML}</div>`;
                 chatWindowEl.appendChild(groupDiv);
             });
             chatWindowEl.scrollTop = chatWindowEl.scrollHeight;
         }
-
-        // --- 功能 3: 發送回覆 (邏輯不變) ---
         async function sendReply(userId, messageId) {
-            // ... (此函式內容與上一版相同) ...
-            const inputEl = document.getElementById(`reply-input-${messageId}`);
-            const replyText = inputEl.value.trim();
+            const inputEl = document.getElementById(`reply-input-${messageId}`); const replyText = inputEl.value.trim();
             if (!replyText) { return alert('回覆內容不能為空！'); }
-
             try {
-                clearInterval(fetchInterval); // 暫停自動刷新
-                const response = await fetch(`${API_BASE_URL}/api/admin/reply`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ userId, messageId, replyText })
-                });
-                const data = await response.json();
-                if (data.success) {
-                    await fetchAllConversations();
-                } else {
-                    alert(`回覆失敗：${data.message}`);
-                }
-            } catch (error) {
-                console.error('回覆請求失敗:', error);
-                alert('網路錯誤，回覆失敗。');
-            } finally {
-                startFetching(); // 重新啟動自動刷新
-            }
+                clearInterval(fetchInterval);
+                const response = await fetch(`${API_BASE_URL}/api/admin/reply`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId, messageId, replyText }) });
+                const data = await response.json(); if (data.success) { await fetchAllConversations(); } else { alert(`回覆失敗：${data.message}`); }
+            } catch (error) { console.error('回覆請求失敗:', error); alert('網路錯誤，回覆失敗。'); } 
+            finally { startFetching(); }
         }
-        
-        // --- 功能 4: 從後端獲取所有對話 (邏輯不變) ---
         async function fetchAllConversations() {
             try {
-                const response = await fetch(`${API_BASE_URL}/api/admin/conversations`);
-                const latestData = await response.json();
-                
-                if (JSON.stringify(latestData) !== JSON.stringify(allConversationsData)) {
-                    allConversationsData = latestData;
-                    renderUserList(); // 重繪左側
-                    if (currentSelectedUserId) {
-                        renderChatWindow(); // 如果有選中用戶，也重繪右側
-                    }
-                }
-            } catch (error) {
-                console.error('獲取所有對話失敗:', error);
-                clearInterval(fetchInterval);
-                userListEl.innerHTML = `<li class="user-item" style="color: red;">無法連接伺服器</li>`;
-            }
+                const response = await fetch(`${API_BASE_URL}/api/admin/conversations`); const latestData = await response.json();
+                if (JSON.stringify(latestData) !== JSON.stringify(allConversationsData)) { allConversationsData = latestData; renderUserList(); if (currentSelectedUserId) { renderChatWindow(); } }
+            } catch (error) { console.error('獲取所有對話失敗:', error); clearInterval(fetchInterval); userListEl.innerHTML = `<li class="user-item" style="color: red;">無法連接伺服器</li>`; }
         }
-
-        // --- 初始化 & 定時刷新 ---
-        function startFetching() {
-             fetchAllConversations();
-             if (fetchInterval) clearInterval(fetchInterval); // 確保沒有重複的計時器
-             fetchInterval = setInterval(fetchAllConversations, 5000);
-        }
-
+        function startFetching() { fetchAllConversations(); if (fetchInterval) clearInterval(fetchInterval); fetchInterval = setInterval(fetchAllConversations, 5000); }
         startFetching();
     </script>
 </body>

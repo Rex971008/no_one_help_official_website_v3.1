@@ -20,6 +20,7 @@
             <li style="--i:1;"><a href="#" data-target="page-home" class="sidebar-link active-link">主頁</a></li>
             <li style="--i:2;"><a href="#" data-target="page-menu" class="sidebar-link">合作店家一覽</a></li>
             <li style="--i:3;"><a href="#" data-target="page-customer-service" class="sidebar-link">線上客服</a></li>
+            <li style="--i:4;"><a href="#" data-target="page-calendar" class="sidebar-link">點餐月曆</a></li>
         </ul>
         <div class="sidebar-info"><p>與我們共同打造更美好的外送體驗</p><p>© 2024 外送沒人幫. All Rights Reserved.</p></div>
     </nav>
@@ -28,7 +29,6 @@
     
     <div class="page-wrapper">
         <main>
-            <!-- ======================= 官網主頁 (不變) ======================= -->
             <div id="page-home" class="page-content page-active">
                 <header class="hero"><div class="hero-content animate-on-scroll"><h1>外送沒人幫</h1><p>二年級，全新啟程。更優質的服務，更方便的體驗，為您而來。</p><a href="#membership" class="cta-button">開始探索</a></div></header>
                 <section id="membership"><div class="container"><div style="text-align:center;"><h2 class="section-title animate-on-scroll">會員制度</h2></div><p class="section-subtitle animate-on-scroll">下學期開始，我們將採用全新的會員制度，提供更專屬的服務。未加入會員者將無法點餐哦！</p><div class="membership-grid"><div class="membership-card animate-on-scroll"><h3 class="text-gradient">一般會員</h3><div class="price">免費</div><ul><li><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>擁有基本點餐資格</li><li><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>於指定地點（中廊）取餐</li><li><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>可於中午時段向幫主儲值</li></ul><a href="https://lin.ee/neuXvlH" target="_blank" class="card-button">加入官方帳號</a></div><div class="membership-card vip animate-on-scroll" style="transition-delay: 0.2s;"><div class="membership-content"><h3 class="text-gradient">VIP 會員</h3><div class="price">100<span> / 月</span></div><ul><li><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>享有專人送餐到班服務</li><li><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>當月全勤點餐，獲50元折價券</li><li><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>可直接向送餐員儲值，更方便</li><li><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>享受所有一般會員權益</li></ul><a href="https://line.me/ti/p/lCLIidT46h" target="_blank" class="card-button">洽詢幫主升級</a></div></div></div></section>
@@ -51,7 +51,6 @@
                 </section>
             </div>
             
-            <!-- ======================= 新增/修改的頁面區塊 ======================= -->
             <div id="page-login" class="page-content">
                 <section>
                     <div class="container">
@@ -96,6 +95,28 @@
                                 <input type="text" id="messageInput" placeholder="請輸入訊息...">
                                 <button id="sendButton">傳送</button>
                             </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+            
+            <div id="page-calendar" class="page-content">
+                <section>
+                    <div class="container">
+                        <div style="text-align:center;">
+                            <h2 class="section-title">點餐月曆</h2>
+                            <p class="section-subtitle">請點擊日期查看或進行點餐。</p>
+                        </div>
+                        <div class="calendar-container">
+                            <div class="calendar-header">
+                                <button id="prev-month-btn"><</button>
+                                <h3 id="current-month-year"></h3>
+                                <button id="next-month-btn">></button>
+                            </div>
+                            <div class="calendar-weekdays">
+                                <div>日</div> <div>一</div> <div>二</div> <div>三</div> <div>四</div> <div>五</div> <div>六</div>
+                            </div>
+                            <div class="calendar-grid" id="calendar-grid"></div>
                         </div>
                     </div>
                 </section>
