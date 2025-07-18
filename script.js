@@ -2,7 +2,7 @@
 
 document.addEventListener('DOMContentLoaded', () => {
     // ================== 全局變數 & API 設定 ==================
-    const API_BASE_URL = 'http://localhost:3000'; // 部署時記得改成你的 Render URL
+    const API_BASE_URL = 'https://no-one-help-official-website-v3-1.onrender.com'; // 部署時記得改成你的 Render URL
     let chatInterval;
     let currentDate = new Date(); // 用於月曆的目前日期
     const body = document.body;
