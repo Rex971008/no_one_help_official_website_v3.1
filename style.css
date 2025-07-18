@@ -261,3 +261,33 @@ body.sidebar-open .sidebar-nav a { opacity: 1; transform: translateY(0); transit
     border: 1px solid var(--primary-color);
     font-weight: bold;
 }
+/* ====== 在 style.css 檔案末尾追加這些樣式 ====== */
+
+/* 讓月曆上有菜單的日期更醒目 */
+.calendar-day.has-menu {
+    border: 2px solid var(--primary-color);
+    box-shadow: 0 0 10px rgba(240, 196, 25, 0.3);
+}
+.calendar-day.has-menu:hover {
+    background-color: var(--primary-color) !important;
+}
+
+/* 點餐彈出視窗的額外樣式 */
+#calendar-order-modal .modal-content {
+    max-width: 700px;
+}
+.modal-section {
+    text-align: center;
+}
+#modal-menu-text {
+    text-align: left;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    font-size: 1.1rem;
+    line-height: 1.8;
+}
+#modal-order-input {
+    resize: vertical;
+    min-height: 100px;
+    font-size: 1rem;
+}
