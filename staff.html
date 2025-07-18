@@ -2,314 +2,208 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <title>工作人員後台 (v4 - 進階管理)</title>
+    <title>工作人員後台 (v4 - 隔離修正)</title>
+    <!-- CSS 樣式與上一版完全相同，此處省略以節省篇幅 -->
     <style>
-        :root { --bg-color: #121212; --surface-color: #1e1e1e; --primary-color: #f0c419; --text-color: #e0e0e0; --text-secondary-color: #a0a0a0; --font-main: 'Noto Sans TC', sans-serif; --border-radius: 12px; --border-color: rgba(255, 255, 255, 0.1); --danger-color: #ef5350; --success-color: #66bb6a;}
-        body { font-family: var(--font-main); background-color: var(--bg-color); color: var(--text-color); margin: 0; padding: 1.5rem; }
-        .admin-dashboard { max-width: 1400px; margin: auto; }
-        .tabs { display: flex; gap: 0.5rem; border-bottom: 1px solid var(--border-color); margin-bottom: 2rem; }
-        .tab-btn { padding: 1rem 1.5rem; background: none; border: none; color: var(--text-secondary-color); font-size: 1.1rem; cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.3s ease; }
-        .tab-btn.active { color: var(--primary-color); border-bottom-color: var(--primary-color); font-weight: bold; }
-        .tab-content { display: none; }
-        .tab-content.active { display: block; animation: fadeIn 0.5s; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        /* ----- 通用樣式 ----- */
-        .panel { display: flex; height: 75vh; gap: 1.5rem; }
-        h2 { margin: 0; font-size: 1.5rem; }
-        button.primary-btn { width: 100%; padding: 0.8rem; border: none; border-radius: 8px; background: var(--primary-color); color: #111; font-size: 1rem; font-weight: bold; cursor: pointer; transition: transform 0.2s ease; }
-        button.primary-btn:hover { transform: translateY(-2px); }
-        input.input-field, textarea.textarea-field { width: 100%; padding: 0.8rem; background-color: #333; border: 1px solid #555; color: var(--text-color); border-radius: 5px; margin-bottom: 1rem; box-sizing: border-box; }
-        textarea.textarea-field { resize: vertical; }
-        .no-content { color: var(--text-secondary-color); text-align: center; margin: 3rem 0; font-size: 1.1rem; }
-        .details-section { margin-bottom: 2.5rem; }
-        .details-section h3 { border-bottom: 2px solid var(--primary-color); padding-bottom: 0.5rem; margin-top: 1.5rem; margin-bottom: 1rem; font-size: 1.2rem;}
-        /* ----- 客服面板 ----- */
+        :root { --bg-color: #121212; --surface-color: #1e1e1e; --primary-color: #f0c419; --text-color: #e0e0e0; --text-secondary-color: #a0a0a0; --font-main: 'Noto Sans TC', sans-serif; --border-radius: 12px; --border-color: rgba(255, 255, 255, 0.1); }
+        body { font-family: var(--font-main); background-color: var(--bg-color); color: var(--text-color); margin: 0; padding: 2rem; }
+        .admin-panel { display: flex; height: 90vh; gap: 2rem; max-width: 1200px; margin: auto; }
         .sidebar { width: 300px; flex-shrink: 0; background-color: var(--surface-color); border-radius: var(--border-radius); display: flex; flex-direction: column; }
         .chat-view { flex-grow: 1; background-color: var(--surface-color); border-radius: var(--border-radius); display: flex; flex-direction: column; padding: 1.5rem; }
         .sidebar-header, .chat-header { padding: 1.5rem; border-bottom: 1px solid var(--border-color); }
+        .sidebar-header h2, .chat-header h2 { margin: 0; }
         #user-list { list-style: none; padding: 0; margin: 0; overflow-y: auto; flex-grow: 1; }
-        .user-item { padding: 1rem 1.5rem; cursor: pointer; border-bottom: 1px solid var(--border-color); }
-        .user-item.active, .user-item:hover { background-color: rgba(240, 196, 25, 0.1); }
-        #chat-window { flex-grow: 1; overflow-y: auto; padding: 1rem; }
-        .message-group { border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; background-color: rgba(0,0,0,0.1); margin-bottom: 1rem; }
-        /* ----- 月曆管理面板 ----- */
-        .calendar-container { flex-basis: 60%; background-color: var(--surface-color); border-radius: var(--border-radius); padding: 2rem; }
-        .details-panel { flex-basis: 40%; background-color: var(--surface-color); border-radius: var(--border-radius); display: flex; flex-direction: column; }
-        .details-header { padding: 1.5rem; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
-        #details-content { flex-grow: 1; overflow-y: auto; padding: 1.5rem; }
-        .calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
-        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
-        .calendar-day { aspect-ratio: 1/1; display: flex; flex-direction: column; align-items: center; justify-content: center; background-color: rgba(0,0,0,0.2); border-radius: 8px; cursor: pointer; transition: all 0.2s ease; position: relative; }
-        .day-number { font-size: 1.1rem; }
-        .calendar-day.not-current-month { color: #555; background-color: transparent; cursor: default; }
-        .calendar-day:not(.not-current-month):hover { background-color: #444; }
-        .calendar-day.selected { outline: 2px solid var(--primary-color); transform: scale(1.05); }
-        .calendar-day.is-closed { background-color: rgba(239, 83, 80, 0.2); }
-        .day-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin: 4px 1px 0; }
-        .dot-menu { background-color: var(--primary-color); }
-        .dot-order { background-color: var(--success-color); }
-        .menu-item { background-color: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px; margin-bottom: 1rem; }
-        .menu-item-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
-        .menu-item-header strong { color: var(--primary-color); }
-        .menu-item pre { white-space: pre-wrap; word-wrap: break-word; font-family: inherit; margin: 0; color: var(--text-secondary-color); }
-        button.delete-btn { background-color: var(--danger-color); color: white; border: none; cursor: pointer; padding: 0.3rem 0.6rem; border-radius: 4px; }
-        #toggle-close-btn { background-color: var(--success-color); color: white; padding: 0.5rem 1rem; border-radius: 8px; border:none; cursor: pointer;}
-        #toggle-close-btn.closed { background-color: var(--danger-color); }
-        #order-list { list-style: none; padding: 0; }
-        #order-list li { background: rgba(0,0,0,0.2); padding: 0.8rem; border-radius: 5px; margin-bottom: 0.5rem; }
-        #order-list .order-user { font-weight: bold; color: var(--primary-color); }
-        #order-list .order-text { white-space: pre-wrap; word-wrap: break-word; }
+        .user-item { padding: 1rem 1.5rem; cursor: pointer; border-bottom: 1px solid var(--border-color); transition: background-color 0.3s ease; }
+        .user-item:hover { background-color: rgba(255,255,255, 0.05); }
+        .user-item.active { background-color: rgba(240, 196, 25, 0.1); color: var(--primary-color); font-weight: bold; }
+        .user-item:last-child { border-bottom: none; }
+        #chat-window { flex-grow: 1; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: 1rem; }
+        #chat-placeholder { margin: auto; color: var(--text-secondary-color); }
+        .message-group { border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; background-color: rgba(0,0,0,0.1); }
+        .customer-question p, .staff-answer p { margin: 0; word-break: break-word; }
+        .customer-question { color: var(--text-color); margin-bottom: 0.8rem; }
+        .staff-answer { color: #a5d6a7; }
+        .staff-answer i { color: var(--text-secondary-color); font-style: normal; }
+        .reply-area { margin-top: 1rem; display: flex; gap: 0.5rem; }
+        .reply-area input { flex-grow: 1; padding: 0.5rem; background-color: #333; border: 1px solid #555; color: var(--text-color); border-radius: 5px; }
+        .reply-area button { background-color: var(--primary-color); color: #111; border: none; padding: 0.5rem 1rem; border-radius: 5px; cursor: pointer; }
     </style>
 </head>
 <body>
-    <div class="admin-dashboard">
-        <header class="tabs">
-            <button class="tab-btn active" data-target="tab-menu-management">菜單與訂單管理</button>
-            <button class="tab-btn" data-target="tab-chat-management">客服管理</button>
-        </header>
+    <div class="admin-panel">
+        <aside class="sidebar">
+            <header class="sidebar-header">
+                <h2>顧客對話列表</h2>
+            </header>
+            <ul id="user-list"></ul>
+        </aside>
 
-        <div id="tab-menu-management" class="tab-content active">
-            <div class="panel calendar-management-panel">
-                <div class="calendar-container">
-                    <div class="calendar-header">
-                        <button id="cal-prev-month-btn"><</button>
-                        <h3 id="cal-current-month-year"></h3>
-                        <button id="cal-next-month-btn">></button>
-                    </div>
-                    <div class="calendar-grid calendar-weekdays"><div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div></div>
-                    <div class="calendar-grid" id="calendar-grid"></div>
-                </div>
-                <div class="details-panel">
-                    <div class="details-header">
-                        <h2 id="details-date">請選擇日期</h2>
-                        <button id="toggle-close-btn" style="display: none;"></button>
-                    </div>
-                    <div id="details-content"><p class="no-content">請從左側月曆選擇一個日期來進行管理。</p></div>
-                </div>
+        <main class="chat-view">
+            <header class="chat-header">
+                <h2 id="chat-header-title">選擇一個對話</h2>
+            </header>
+            <div id="chat-window">
+                <p id="chat-placeholder">請從左側選擇一位顧客以查看對話紀錄。</p>
             </div>
-        </div>
-
-        <div id="tab-chat-management" class="tab-content">
-            <div class="panel">
-                <aside class="sidebar">
-                    <header class="sidebar-header"><h2>顧客對話列表</h2></header>
-                    <ul id="user-list"></ul>
-                </aside>
-                <main class="chat-view">
-                    <header class="chat-header"><h2 id="chat-header-title">選擇一個對話</h2></header>
-                    <div id="chat-window"><p class="no-content">請從左側選擇一位顧客。</p></div>
-                </main>
-            </div>
-        </div>
+        </main>
     </div>
 
     <script>
-        const API_BASE_URL = 'https://no-one-help-official-website-v3-1.onrender.com';
+        const API_BASE_URL = 'https://no-one-help-official-website-v3-1.onrender.com'; // 部署時記得改成 Render 網址
+        const userListEl = document.getElementById('user-list');
+        const chatHeaderTitleEl = document.getElementById('chat-header-title');
+        const chatWindowEl = document.getElementById('chat-window');
 
-        document.addEventListener('DOMContentLoaded', () => {
-            // ========= 初始化 ==========
-            initTabs();
-            initCalendar();
-            initChat();
-        });
+        let allConversationsData = []; 
+        let currentSelectedUserId = null;
+        let fetchInterval;
 
-        function initTabs() {
-            const tabBtns = document.querySelectorAll('.tab-btn');
-            const tabContents = document.querySelectorAll('.tab-content');
-            tabBtns.forEach(btn => {
-                btn.addEventListener('click', () => {
-                    tabBtns.forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                    tabContents.forEach(c => c.classList.remove('active'));
-                    document.getElementById(btn.dataset.target).classList.add('active');
+        // --- 功能 1: 渲染/更新左側使用者列表 (邏輯簡化) ---
+        function renderUserList() {
+            const currentActiveUser = userListEl.querySelector('.active');
+            // 儲存當前活躍用戶ID，以便重繪後恢復
+            const currentActiveId = currentActiveUser ? currentActiveUser.dataset.userId : null;
+            
+            userListEl.innerHTML = '';
+            if (allConversationsData.length === 0) {
+                userListEl.innerHTML = '<li class="user-item">尚無任何對話</li>';
+                return;
+            }
+
+            allConversationsData.forEach(convo => {
+                const li = document.createElement('li');
+                li.className = 'user-item';
+                li.textContent = convo.username;
+                li.dataset.userId = convo.userId;
+                
+                // 恢復活躍狀態
+                if (convo.userId === currentActiveId) {
+                    li.classList.add('active');
+                }
+
+                li.addEventListener('click', () => {
+                    if (currentSelectedUserId !== convo.userId) {
+                        currentSelectedUserId = convo.userId;
+                        document.querySelectorAll('.user-item').forEach(item => item.classList.remove('active'));
+                        li.classList.add('active');
+                        renderChatWindow();
+                    }
                 });
+                userListEl.appendChild(li);
             });
         }
-
-        // ========== 月曆管理邏輯 ==========
-        function initCalendar() {
-            const calendarGrid = document.getElementById('calendar-grid');
-            const monthYearEl = document.getElementById('cal-current-month-year');
-            const prevBtn = document.getElementById('cal-prev-month-btn');
-            const nextBtn = document.getElementById('cal-next-month-btn');
-            const detailsDateEl = document.getElementById('details-date');
-            const detailsContentEl = document.getElementById('details-content');
-            const toggleCloseBtn = document.getElementById('toggle-close-btn');
-
-            let currentDate = new Date();
-            let monthSummary = {};
-            let selectedDate = null;
-
-            async function fetchMonthSummary() {
-                const year = currentDate.getFullYear();
-                const month = String(currentDate.getMonth() + 1).padStart(2, '0');
-                try {
-                    // API summary 需要登入，暫用假 token，未來需改為管理員登入
-                    const response = await fetch(`${API_BASE_URL}/api/calendar/summary/${year}/${month}`, { headers: { 'Authorization': '1' } });
-                    if (!response.ok) throw new Error('Network response was not ok');
-                    monthSummary = await response.json();
-                    renderCalendar();
-                } catch (error) { console.error('無法獲取月份摘要:', error); }
+        
+        // --- 功能 2: 渲染右側聊天視窗 (已修正) ---
+        function renderChatWindow() {
+            if (!currentSelectedUserId) {
+                chatHeaderTitleEl.textContent = '選擇一個對話';
+                chatWindowEl.innerHTML = '<p id="chat-placeholder">請從左側選擇一位顧客以查看對話紀錄。</p>';
+                return;
+            }
+            
+            const conversation = allConversationsData.find(c => c.userId === currentSelectedUserId);
+            if (!conversation) {
+                // 如果在資料更新後，當前選擇的用戶消失了，就重置
+                chatHeaderTitleEl.textContent = '用戶不存在';
+                chatWindowEl.innerHTML = '<p id="chat-placeholder">該用戶對話已不存在。</p>';
+                return;
             }
 
-            function renderCalendar() {
-                const year = currentDate.getFullYear();
-                const month = currentDate.getMonth();
-                monthYearEl.textContent = `${year}年 ${month + 1}月`;
-                calendarGrid.innerHTML = '';
-                const firstDay = new Date(year, month, 1).getDay();
-                const daysInMonth = new Date(year, month + 1, 0).getDate();
-                
-                for (let i = 0; i < firstDay; i++) calendarGrid.insertAdjacentHTML('beforeend', '<div class="calendar-day not-current-month"></div>');
-                
-                for (let i = 1; i <= daysInMonth; i++) {
-                    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
-                    const summary = monthSummary[dateStr] || {};
-                    const dayEl = document.createElement('div');
-                    dayEl.className = 'calendar-day';
-                    dayEl.dataset.date = dateStr;
-                    if (summary.isClosed) dayEl.classList.add('is-closed');
-                    if (dateStr === selectedDate) dayEl.classList.add('selected');
-                    
-                    let dotsHTML = '<div class="day-dots">';
-                    if (summary.hasMenu) dotsHTML += '<span class="day-dot dot-menu"></span>';
-                    if (summary.hasOrder) dotsHTML += '<span class="day-dot dot-order"></span>';
-                    dotsHTML += '</div>';
+            // ★★★★★ 關鍵修正：每次渲染前，先徹底清空畫布！ ★★★★★
+            chatWindowEl.innerHTML = ''; 
 
-                    dayEl.innerHTML = `<span class="day-number">${i}</span>${dotsHTML}`;
+            chatHeaderTitleEl.textContent = `與 ${conversation.username} 的對話`;
 
-                    dayEl.addEventListener('click', () => {
-                        selectedDate = dateStr;
-                        document.querySelectorAll('.calendar-day').forEach(d => d.classList.remove('selected'));
-                        dayEl.classList.add('selected');
-                        loadDetailsForDate(dateStr);
-                    });
-                    calendarGrid.appendChild(dayEl);
-                }
+            if (conversation.messages.length === 0) {
+                chatWindowEl.innerHTML = '<p id="chat-placeholder">此用戶尚未發送任何訊息。</p>';
+                return;
             }
+             
+            conversation.messages.forEach(msg => {
+                const groupDiv = document.createElement('div');
+                groupDiv.className = 'message-group';
 
-            async function loadDetailsForDate(dateStr) {
-                detailsDateEl.textContent = dateStr;
-                detailsContentEl.innerHTML = `<p class="no-content">載入中...</p>`;
-                toggleCloseBtn.style.display = 'none';
-
-                try {
-                    const [menuRes, ordersRes] = await Promise.all([
-                        fetch(`${API_BASE_URL}/api/calendar/menu/${dateStr}`),
-                        fetch(`${API_BASE_URL}/api/admin/orders/${dateStr}`)
-                    ]);
-                    
-                    const menuData = menuRes.ok ? await menuRes.json() : { isClosed: false, menus: [] };
-                    const ordersData = ordersRes.ok ? await ordersRes.json() : [];
-
-                    updateToggleBtn(menuData.isClosed);
-                    toggleCloseBtn.style.display = menuData.menus.length > 0 ? 'block' : 'none';
-
-                    detailsContentEl.innerHTML = `
-                        <div class="details-section">
-                            <h3>當日菜單列表</h3>
-                            <div id="menu-list"></div>
-                        </div>
-                        <div class="details-section">
-                            <h3>新增菜單</h3>
-                            <input id="new-vendor-input" class="input-field" placeholder="店家名稱">
-                            <textarea id="new-menu-input" class="textarea-field" placeholder="菜單內容 (文字或連結)"></textarea>
-                            <button class="primary-btn" onclick="window.staffFuncs.addMenu('${dateStr}')">新增此店家菜單</button>
-                        </div>
-                        <div class="details-section">
-                            <h3>當日訂單 (${ordersData.length} 筆)</h3>
-                            <ul id="order-list">
-                                ${ordersData.length > 0 ? ordersData.map(o => `<li><p class="order-user">${o.username}:</p><p class="order-text">${o.orderText||'(無內容)'}</p></li>`).join('') : '<li class="no-content">尚無訂單</li>'}
-                            </ul>
+                let answerHTML = '';
+                if (msg.staffReply) {
+                    answerHTML = `<p><b>您的回覆:</b> ${msg.staffReply}</p>`;
+                } else {
+                    // 保留當前輸入框的值，雖然刷新會重繪，但頻率不高，體驗尚可
+                    answerHTML = `
+                        <p><b>您的回覆:</b> <i>尚未回覆</i></p>
+                        <div class="reply-area">
+                            <input type="text" id="reply-input-${msg.id}" placeholder="請在此輸入回覆...">
+                            <button onclick="sendReply('${currentSelectedUserId}', ${msg.id})">送出</button>
                         </div>
                     `;
-                    renderMenuList(dateStr, menuData.menus);
-
-                } catch (error) {
-                    console.error('載入詳細資料失敗:', error);
-                    detailsContentEl.innerHTML = `<p class="no-content">載入資料失敗。</p>`;
                 }
-            }
-            
-            function renderMenuList(dateStr, menus) {
-                const menuListEl = document.getElementById('menu-list');
-                if(!menuListEl) return;
-                menuListEl.innerHTML = menus.length > 0 ? menus.map(menu => `
-                    <div class="menu-item">
-                        <div class="menu-item-header">
-                            <strong>${menu.vendor}</strong>
-                            <button class="delete-btn" onclick="window.staffFuncs.deleteMenu('${dateStr}', ${menu.menuId})">刪除</button>
-                        </div>
-                        <pre>${menu.menuText}</pre>
+
+                groupDiv.innerHTML = `
+                    <div class="customer-question">
+                        <p><b>顧客 (ID: ${msg.id}):</b> ${msg.customerMessage}</p>
                     </div>
-                `).join('') : '<p class="no-content">本日尚無菜單</p>';
-            }
+                    <div class="staff-answer">${answerHTML}</div>
+                `;
+                chatWindowEl.appendChild(groupDiv);
+            });
+            chatWindowEl.scrollTop = chatWindowEl.scrollHeight;
+        }
 
-            function updateToggleBtn(isClosed) {
-                toggleCloseBtn.textContent = isClosed ? '點餐已截止 (點我開放)' : '點餐開放中 (點我截止)';
-                toggleCloseBtn.className = isClosed ? 'closed' : '';
-            }
-            
-            async function addMenu(dateStr) { /* ... 待掛載到 window ... */ }
-            async function deleteMenu(dateStr, menuId) { /* ... 待掛載到 window ... */ }
-            async function toggleClose(dateStr) { /* ... 待掛載到 window ... */ }
+        // --- 功能 3: 發送回覆 (邏輯不變) ---
+        async function sendReply(userId, messageId) {
+            // ... (此函式內容與上一版相同) ...
+            const inputEl = document.getElementById(`reply-input-${messageId}`);
+            const replyText = inputEl.value.trim();
+            if (!replyText) { return alert('回覆內容不能為空！'); }
 
-            // 把需要被 onclick 呼叫的函式掛載到 window 物件上
-            window.staffFuncs = {
-                addMenu: async (dateStr) => {
-                    const vendor = document.getElementById('new-vendor-input').value.trim();
-                    const menuText = document.getElementById('new-menu-input').value.trim();
-                    if (!vendor || !menuText) return alert('店家和菜單內容不能為空！');
-                    await fetch(`${API_BASE_URL}/api/admin/menu/${dateStr}`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ vendor, menuText }) });
-                    loadDetailsForDate(dateStr);
-                    fetchMonthSummary();
-                },
-                deleteMenu: async (dateStr, menuId) => {
-                    if (!confirm('確定要刪除這個菜單嗎？')) return;
-                    await fetch(`${API_BASE_URL}/api/admin/menu/${dateStr}/${menuId}`, { method: 'DELETE' });
-                    loadDetailsForDate(dateStr);
-                    fetchMonthSummary();
-                },
-                toggleClose: async (dateStr) => {
-                    const response = await fetch(`${API_BASE_URL}/api/admin/menu/toggle-close/${dateStr}`, { method: 'POST' });
-                    const data = await response.json();
-                    if (response.ok) updateToggleBtn(data.isClosed);
-                    fetchMonthSummary();
+            try {
+                clearInterval(fetchInterval); // 暫停自動刷新
+                const response = await fetch(`${API_BASE_URL}/api/admin/reply`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId, messageId, replyText })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    await fetchAllConversations();
+                } else {
+                    alert(`回覆失敗：${data.message}`);
                 }
-            };
-
-            prevBtn.addEventListener('click', () => { currentDate.setMonth(currentDate.getMonth() - 1); fetchMonthSummary(); });
-            nextBtn.addEventListener('click', () => { currentDate.setMonth(currentDate.getMonth() + 1); fetchMonthSummary(); });
-            toggleCloseBtn.addEventListener('click', () => { if(selectedDate) window.staffFuncs.toggleClose(selectedDate); });
-
-            fetchMonthSummary();
+            } catch (error) {
+                console.error('回覆請求失敗:', error);
+                alert('網路錯誤，回覆失敗。');
+            } finally {
+                startFetching(); // 重新啟動自動刷新
+            }
+        }
+        
+        // --- 功能 4: 從後端獲取所有對話 (邏輯不變) ---
+        async function fetchAllConversations() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/admin/conversations`);
+                const latestData = await response.json();
+                
+                if (JSON.stringify(latestData) !== JSON.stringify(allConversationsData)) {
+                    allConversationsData = latestData;
+                    renderUserList(); // 重繪左側
+                    if (currentSelectedUserId) {
+                        renderChatWindow(); // 如果有選中用戶，也重繪右側
+                    }
+                }
+            } catch (error) {
+                console.error('獲取所有對話失敗:', error);
+                clearInterval(fetchInterval);
+                userListEl.innerHTML = `<li class="user-item" style="color: red;">無法連接伺服器</li>`;
+            }
         }
 
-        // ========== 客服管理邏輯 ==========
-        function initChat() {
-            const chatManagementTab = document.getElementById('tab-chat-management');
-            chatManagementTab.innerHTML = `<div class="panel"><aside class="sidebar"><header class="sidebar-header"><h2>顧客對話列表</h2></header><ul id="user-list"></ul></aside><main class="chat-view"><header class="chat-header"><h2 id="chat-header-title">選擇一個對話</h2></header><div id="chat-window"><p class="no-content">請從左側選擇一位顧客。</p></div></main></div>`;
-            
-            const userListEl = document.getElementById('user-list');
-            const chatHeaderTitleEl = document.getElementById('chat-header-title');
-            const chatWindowEl = document.getElementById('chat-window');
-            let allConversationsData = [], currentSelectedUserId = null, chatFetchInterval;
-
-            function renderUserList() { /* 與v4相同 */ }
-            function renderChatWindow() { /* 與v4相同 */ }
-            async function sendReply(userId, messageId) { /* 與v4相同 */ }
-            async function fetchAllConversations() { /* 與v4相同 */ }
-            function startChatFetching() { fetchAllConversations(); if (chatFetchInterval) clearInterval(chatFetchInterval); chatFetchInterval = setInterval(fetchAllConversations, 5000); }
-            
-            // 補全函式實作
-            renderUserList = () => { const activeId = userListEl.querySelector('.active')?.dataset.userId; userListEl.innerHTML = ''; if (allConversationsData.length === 0) { userListEl.innerHTML = '<li class="user-item">尚無任何對話</li>'; return; } allConversationsData.forEach(c => { const li = document.createElement('li'); li.className = 'user-item'; li.textContent = c.username; li.dataset.userId = c.userId; if (c.userId === activeId) li.classList.add('active'); li.addEventListener('click', () => { if (currentSelectedUserId !== c.userId) { currentSelectedUserId = c.userId; document.querySelectorAll('.user-item').forEach(i => i.classList.remove('active')); li.classList.add('active'); renderChatWindow(); } }); userListEl.appendChild(li); }); };
-            renderChatWindow = () => { if (!currentSelectedUserId) return; const convo = allConversationsData.find(c => c.userId === currentSelectedUserId); if (!convo) return; chatWindowEl.innerHTML = ''; chatHeaderTitleEl.textContent = `與 ${convo.username} 的對話`; if (convo.messages.length === 0) { chatWindowEl.innerHTML = '<p class="no-content">此用戶尚無訊息。</p>'; return; } convo.messages.forEach(msg => { const group = document.createElement('div'); group.className = 'message-group'; const answerHTML = msg.staffReply ? `<p><b>您的回覆:</b> ${msg.staffReply}</p>` : `<p><b>您的回覆:</b> <i>尚未回覆</i></p><div class="reply-area"><input type="text" id="reply-input-${msg.id}"/><button onclick="window.chatFuncs.sendReply('${currentSelectedUserId}', ${msg.id})">送出</button></div>`; group.innerHTML = `<div><p><b>顧客 (ID: ${msg.id}):</b> ${msg.customerMessage}</p></div><div>${answerHTML}</div>`; chatWindowEl.appendChild(group); }); };
-            sendReply = async (userId, msgId) => { const input = document.getElementById(`reply-input-${msgId}`); if (!input || !input.value.trim()) return alert('回覆不能為空!'); try { clearInterval(chatFetchInterval); await fetch(`${API_BASE_URL}/api/admin/reply`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId, messageId: msgId, replyText: input.value.trim() }) }); await fetchAllConversations(); } catch(e) { alert('回覆失敗'); } finally { startChatFetching(); } };
-            fetchAllConversations = async () => { try { const res = await fetch(`${API_BASE_URL}/api/admin/conversations`); const data = await res.json(); if (JSON.stringify(data) !== JSON.stringify(allConversationsData)) { allConversationsData = data; renderUserList(); if(currentSelectedUserId) renderChatWindow(); } } catch(e) { clearInterval(chatFetchInterval); userListEl.innerHTML = '<li class="user-item" style="color:red">無法連接伺服器</li>'; }};
-            
-            window.chatFuncs = { sendReply }; // 將 sendReply 掛載到 window
-            startChatFetching();
+        // --- 初始化 & 定時刷新 ---
+        function startFetching() {
+             fetchAllConversations();
+             if (fetchInterval) clearInterval(fetchInterval); // 確保沒有重複的計時器
+             fetchInterval = setInterval(fetchAllConversations, 5000);
         }
+
+        startFetching();
     </script>
 </body>
 </html>
