@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <title>工作人員後台 (v5.2 - _id 修正版)</title>
+    <title>工作人員後台 (v5.3 - 允許多活動版)</title>
     <style>
         :root { --bg-color: #121212; --surface-color: #1e1e1e; --primary-color: #f0c419; --text-color: #e0e0e0; --text-secondary-color: #a0a0a0; --font-main: 'Noto Sans TC', sans-serif; --border-radius: 12px; --border-color: rgba(255, 255, 255, 0.1); --error-color: #ff5252; --success-color: #a5d6a7; }
         body { font-family: var(--font-main); background-color: var(--bg-color); color: var(--text-color); margin: 0; padding: 2rem; overflow-y: hidden; }
@@ -13,7 +13,7 @@
         .nav-btn.active { background-color: var(--primary-color); color: #111; border-color: var(--primary-color); font-weight: bold; }
         .panel { flex-grow: 1; display: none; overflow: hidden; }
         .panel.active { display: block; }
-        /* == 客服系統樣式 == */
+        /* ...客服系統樣式(無變動)... */
         .customer-service-panel { display: flex; height: 100%; gap: 1.5rem; padding: 1.5rem; box-sizing: border-box; }
         .sidebar { width: 300px; flex-shrink: 0; background-color: rgba(0,0,0,0.15); border-radius: var(--border-radius); display: flex; flex-direction: column; }
         .chat-view { flex-grow: 1; background-color: rgba(0,0,0,0.15); border-radius: var(--border-radius); display: flex; flex-direction: column; padding: 1.5rem; }
@@ -21,81 +21,55 @@
         .sidebar-header h2, .chat-header h2 { margin: 0; }
         #user-list { list-style: none; padding: 0; margin: 0; overflow-y: auto; flex-grow: 1; }
         .user-item { padding: 1rem 1.5rem; cursor: pointer; border-bottom: 1px solid var(--border-color); transition: background-color 0.3s ease; }
-        .user-item:hover { background-color: rgba(255,255,255, 0.05); }
-        .user-item.active { background-color: rgba(240, 196, 25, 0.1); color: var(--primary-color); font-weight: bold; }
-        .user-item:last-child { border-bottom: none; }
         #chat-window { flex-grow: 1; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: 1rem; }
-        #chat-placeholder { margin: auto; color: var(--text-secondary-color); }
         .message-group { border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; background-color: rgba(0,0,0,0.1); }
-        .customer-question p, .staff-answer p { margin: 0; word-break: break-word; }
-        .customer-question { color: var(--text-color); margin-bottom: 0.8rem; }
-        .staff-answer { color: var(--success-color); }
-        .staff-answer i { color: var(--text-secondary-color); font-style: normal; }
-        .reply-area { margin-top: 1rem; display: flex; gap: 0.5rem; }
-        .reply-input { flex-grow: 1; padding: 0.5rem; background-color: #333; border: 1px solid #555; color: var(--text-color); border-radius: 5px; }
-        .reply-button { background-color: var(--primary-color); color: #111; border: none; padding: 0.5rem 1rem; border-radius: 5px; cursor: pointer; }
 
-        /* == 日曆管理系統樣式 == */
+        /* == 日曆管理系統樣式(有修改) == */
         .calendar-admin-panel { display: flex; height: 100%; padding: 1.5rem; box-sizing: border-box; gap: 1.5rem; }
         .calendar-container { flex: 0 0 60%; background-color: rgba(0,0,0,0.15); border-radius: var(--border-radius); padding: 1.5rem; }
-        .calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
         .calendar-header h3 { font-size: 1.8rem; color: var(--primary-color); margin: 0; }
-        .calendar-header button { background: none; border: 2px solid var(--text-secondary-color); color: var(--text-secondary-color); width: 40px; height: 40px; border-radius: 50%; font-size: 1.5rem; cursor: pointer; transition: all 0.3s ease; }
-        .calendar-header button:hover { border-color: var(--primary-color); color: var(--primary-color); }
-        .calendar-weekdays, .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
-        .calendar-weekdays { font-weight: bold; color: var(--text-secondary-color); text-align: center; margin-bottom: 0.5rem; }
-        .calendar-day { aspect-ratio: 1 / 1; display: flex; justify-content: flex-start; align-items: flex-start; background-color: #2a2a2a; border-radius: 8px; font-size: 0.9rem; color: var(--text-color); transition: all 0.3s ease; cursor: pointer; padding: 8px; border: 2px solid transparent; }
-        .calendar-day.not-current-month { color: #555; background-color: transparent; cursor: not-allowed; }
-        .calendar-day.has-event { border-color: var(--primary-color); font-weight: bold; }
-        .calendar-day.selected { background-color: var(--primary-color); color: #111; border-color: #fff; }
+        .calendar-day { position: relative; } /* **新增**：為了定位角標 */
+        .event-count-badge { /* **新增**：活動數量角標 */
+            position: absolute; top: 4px; right: 4px; background-color: var(--primary-color); color: #111;
+            width: 18px; height: 18px; border-radius: 50%; font-size: 0.75rem;
+            display: flex; justify-content: center; align-items: center; font-weight: bold;
+        }
         
         .date-detail-panel { flex-grow: 1; background-color: rgba(0,0,0,0.15); border-radius: var(--border-radius); padding: 2rem; overflow-y: auto; }
-        .detail-header { margin: 0; padding: 0 0 1rem 0; border-bottom: 1px solid var(--border-color); margin-bottom: 1.5rem; }
-        .detail-date { font-weight: bold; font-size: 1.5rem; }
         .form-group { margin-bottom: 1.2rem; }
-        .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 500; color: var(--text-secondary-color); }
-        .form-group input[type="text"], .form-group input[type="datetime-local"], .form-group textarea { width: 100%; padding: 0.8rem; background-color: #333; border: 1px solid #555; color: var(--text-color); border-radius: 5px; font-size: 1rem; box-sizing: border-box; }
-        .form-group textarea { min-height: 150px; resize: vertical; }
-        .form-group .radio-group { display: flex; gap: 1rem; }
-        .form-btn { width: 100%; padding: 0.8rem; background-color: var(--primary-color); color: #111; border: none; border-radius: 5px; font-size: 1.1rem; font-weight: bold; cursor: pointer; transition: opacity 0.3s; }
-        .form-btn:disabled { background-color: #555; cursor: not-allowed; }
-
-        .event-info p { margin: 0.5rem 0 1rem 0; background-color: #333; padding: 0.8rem; border-radius: 5px; word-break: break-word; }
-        .event-info span { color: var(--text-secondary-color); }
-        .event-info img.menu-image { max-width: 100%; border-radius: 8px; margin-top: 0.5rem; }
         
-        /* == 點餐紀錄列表樣式 == */
-        .order-list { list-style-type: none; padding: 0; margin-top: 1rem; }
-        .order-list-item { background-color: #2a2a2a; padding: 1rem; border-radius: 8px; margin-bottom: 0.8rem; border-left: 4px solid var(--primary-color); }
-        .order-user { font-weight: bold; color: var(--primary-color); margin-bottom: 0.5rem; }
-        .order-text { white-space: pre-wrap; word-wrap: break-word; }
+        .event-card { /* **新增**：單一活動卡片 */
+            background: #2a2a2a; border-radius: var(--border-radius); padding: 1.5rem;
+            margin-bottom: 1.5rem; border: 1px solid var(--border-color);
+        }
+        .add-event-btn { /* **新增**：新增活動按鈕 */
+            display: block; width: 100%; padding: 0.8rem; background: none; border: 2px dashed var(--border-color);
+            color: var(--text-secondary-color); border-radius: 8px; font-size: 1rem; cursor: pointer; transition: all 0.3s ease;
+        }
+        .add-event-btn:hover { border-color: var(--primary-color); color: var(--primary-color); }
+
+        /* ...其餘樣式省略，與v5.2版本相同... */
+        .user-item:hover { background-color: rgba(255,255,255, 0.05); } .user-item.active { background-color: rgba(240, 196, 25, 0.1); color: var(--primary-color); font-weight: bold; } .user-item:last-child { border-bottom: none; } #chat-placeholder { margin: auto; color: var(--text-secondary-color); } .customer-question p, .staff-answer p { margin: 0; word-break: break-word; } .customer-question { color: var(--text-color); margin-bottom: 0.8rem; } .staff-answer { color: var(--success-color); } .staff-answer i { color: var(--text-secondary-color); font-style: normal; } .reply-area { margin-top: 1rem; display: flex; gap: 0.5rem; } .reply-input { flex-grow: 1; padding: 0.5rem; background-color: #333; border: 1px solid #555; color: var(--text-color); border-radius: 5px; } .reply-button { background-color: var(--primary-color); color: #111; border: none; padding: 0.5rem 1rem; border-radius: 5px; cursor: pointer; } .calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; } .calendar-header button { background: none; border: 2px solid var(--text-secondary-color); color: var(--text-secondary-color); width: 40px; height: 40px; border-radius: 50%; font-size: 1.5rem; cursor: pointer; transition: all 0.3s ease; } .calendar-header button:hover { border-color: var(--primary-color); color: var(--primary-color); } .calendar-weekdays, .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; } .calendar-weekdays { font-weight: bold; color: var(--text-secondary-color); text-align: center; margin-bottom: 0.5rem; } .calendar-day { aspect-ratio: 1 / 1; display: flex; justify-content: flex-start; align-items: flex-start; background-color: #2a2a2a; border-radius: 8px; font-size: 0.9rem; color: var(--text-color); transition: all 0.3s ease; cursor: pointer; padding: 8px; border: 2px solid transparent; } .calendar-day.not-current-month { color: #555; background-color: transparent; cursor: not-allowed; } .calendar-day.has-event { border-color: var(--primary-color); font-weight: bold; } .calendar-day.selected { background-color: var(--primary-color); color: #111; border-color: #fff; } .detail-header { margin: 0; padding: 0 0 1rem 0; border-bottom: 1px solid var(--border-color); margin-bottom: 1.5rem; } .detail-date { font-weight: bold; font-size: 1.5rem; } .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 500; color: var(--text-secondary-color); } .form-group input[type="text"], .form-group input[type="datetime-local"], .form-group textarea { width: 100%; padding: 0.8rem; background-color: #333; border: 1px solid #555; color: var(--text-color); border-radius: 5px; font-size: 1rem; box-sizing: border-box; } .form-group textarea { min-height: 150px; resize: vertical; } .form-group .radio-group { display: flex; gap: 1rem; } .form-btn { width: 100%; padding: 0.8rem; background-color: var(--primary-color); color: #111; border: none; border-radius: 5px; font-size: 1.1rem; font-weight: bold; cursor: pointer; transition: opacity 0.3s; } .form-btn:disabled { background-color: #555; cursor: not-allowed; } .event-info p { margin: 0.5rem 0 1rem 0; background-color: #333; padding: 0.8rem; border-radius: 5px; word-break: break-word; } .event-info span { color: var(--text-secondary-color); } .event-info img.menu-image { max-width: 100%; border-radius: 8px; margin-top: 0.5rem; } .order-list { list-style-type: none; padding: 0; margin-top: 1rem; } .order-list-item { background-color: #2a2a2a; padding: 1rem; border-radius: 8px; margin-bottom: 0.8rem; border-left: 4px solid var(--primary-color); } .order-user { font-weight: bold; color: var(--primary-color); margin-bottom: 0.5rem; } .order-text { white-space: pre-wrap; word-wrap: break-word; }
     </style>
 </head>
 <body>
     <div class="admin-container">
+        <!-- Nav and Panels HTML are unchanged -->
         <nav class="main-nav">
             <button id="nav-chat" class="nav-btn active">客服系統</button>
             <button id="nav-calendar" class="nav-btn">點餐日曆管理</button>
         </nav>
         <div id="customer-service-panel" class="panel active">
              <div class="customer-service-panel">
-                <aside class="sidebar">
-                    <header class="sidebar-header"><h2>顧客對話列表</h2></header>
-                    <ul id="user-list"></ul>
-                </aside>
-                <main class="chat-view">
-                    <header class="chat-header"><h2 id="chat-header-title">選擇一個對話</h2></header>
-                    <div id="chat-window"><p id="chat-placeholder">請從左側選擇一位顧客以查看對話紀錄。</p></div>
-                </main>
+                <aside class="sidebar"><header class="sidebar-header"><h2>顧客對話列表</h2></header><ul id="user-list"></ul></aside>
+                <main class="chat-view"><header class="chat-header"><h2 id="chat-header-title">選擇一個對話</h2></header><div id="chat-window"><p id="chat-placeholder">請從左側選擇一位顧客以查看對話紀錄。</p></div></main>
             </div>
         </div>
         <div id="calendar-admin-panel" class="panel">
              <div class="calendar-admin-panel">
                 <div class="calendar-container">
                     <div class="calendar-header">
-                        <button id="prev-month-btn"><</button>
-                        <h3 id="current-month-year"></h3>
-                        <button id="next-month-btn">></button>
+                        <button id="prev-month-btn"><</button><h3 id="current-month-year"></h3><button id="next-month-btn">></button>
                     </div>
                     <div class="calendar-weekdays"><div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div></div>
                     <div class="calendar-grid" id="calendar-grid"></div>
@@ -108,217 +82,159 @@
         </div>
     </div>
     <script>
-        const API_BASE_URL = 'https://no-one-help-official-website-v3-1.onrender.com'; 
-
+        const API_BASE_URL = 'https://no-one-help-official-website-v3-1.onrender.com';
+        // The script content below will be fully replaced
         document.addEventListener('DOMContentLoaded', () => {
             initPanelSwitching();
             initCustomerServicePanel();
             initCalendarAdminPanel();
         });
 
+        // Customer Service Panel JS is unchanged (v5.2 logic)
+        function initCustomerServicePanel() { /* ... */ }
+        function initPanelSwitching() { /* ... */ }
+        // For brevity, using the correct JS from previous step.
+        function initPanelSwitching() { const navChatBtn = document.getElementById('nav-chat'); const navCalendarBtn = document.getElementById('nav-calendar'); const chatPanel = document.getElementById('customer-service-panel'); const calendarPanel = document.getElementById('calendar-admin-panel'); navChatBtn.addEventListener('click', () => { navChatBtn.classList.add('active'); navCalendarBtn.classList.remove('active'); chatPanel.classList.add('active'); calendarPanel.classList.remove('active'); }); navCalendarBtn.addEventListener('click', () => { navCalendarBtn.classList.add('active'); navChatBtn.classList.remove('active'); calendarPanel.classList.add('active'); chatPanel.classList.remove('active'); }); }
+        function initCustomerServicePanel() { const userListEl = document.getElementById('user-list'); const chatHeaderTitleEl = document.getElementById('chat-header-title'); const chatWindowEl = document.getElementById('chat-window'); let allConversationsData = []; let currentSelectedUserId = null; let fetchInterval; function renderUserList() { const currentActiveId = currentSelectedUserId; userListEl.innerHTML = ''; if (allConversationsData.length === 0) { userListEl.innerHTML = '<li class="user-item">尚無任何對話</li>'; return; } allConversationsData.forEach(convo => { const li = document.createElement('li'); li.className = 'user-item'; li.textContent = convo.username; li.dataset.userId = convo.userId; if (convo.userId === currentActiveId) { li.classList.add('active'); } li.addEventListener('click', () => { if (currentSelectedUserId !== convo.userId) { currentSelectedUserId = convo.userId; renderUserList(); renderChatWindow(); } }); userListEl.appendChild(li); }); } function renderChatWindow() { if (!currentSelectedUserId) { chatHeaderTitleEl.textContent = '選擇一個對話'; chatWindowEl.innerHTML = '<p id="chat-placeholder">請從左側選擇一位顧客以查看對話紀錄。</p>'; return; } const conversation = allConversationsData.find(c => c.userId === currentSelectedUserId); if (!conversation) { chatHeaderTitleEl.textContent = '用戶不存在'; chatWindowEl.innerHTML = '<p id="chat-placeholder">該用戶對話已不存在。</p>'; return; } chatWindowEl.innerHTML = ''; chatHeaderTitleEl.textContent = `與 ${conversation.username} 的對話`; if (conversation.messages.length === 0) { chatWindowEl.innerHTML = '<p id="chat-placeholder">此用戶尚未發送任何訊息。</p>'; return; } conversation.messages.forEach(msg => { const groupDiv = document.createElement('div'); groupDiv.className = 'message-group'; let answerHTML = ''; if (msg.staffReply) { answerHTML = `<p><b>您的回覆:</b> ${msg.staffReply}</p>`; } else { answerHTML = `<p><b>您的回覆:</b> <i>尚未回覆</i></p><div class="reply-area"><input type="text" class="reply-input" id="reply-input-${msg._id}" placeholder="請在此輸入回覆..."><button class="reply-button" data-user-id="${currentSelectedUserId}" data-message-id="${msg._id}">送出</button></div>`; } groupDiv.innerHTML = `<div class="customer-question"><p><b>顧客 (ID: ${msg._id}):</b> ${msg.customerMessage}</p></div><div class="staff-answer">${answerHTML}</div>`; chatWindowEl.appendChild(groupDiv); }); chatWindowEl.onclick = function(event) { if (event.target.classList.contains('reply-button')) { const userId = event.target.dataset.userId; const messageId = event.target.dataset.messageId; sendReply(userId, messageId); } } chatWindowEl.scrollTop = chatWindowEl.scrollHeight; } async function sendReply(userId, messageId) { if (!messageId) return alert('無效的訊息 ID。'); const inputEl = document.getElementById(`reply-input-${messageId}`); const replyText = inputEl.value.trim(); if (!replyText) return alert('回覆內容不能為空！'); try { clearInterval(fetchInterval); const response = await fetch(`${API_BASE_URL}/api/admin/reply`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId, messageId, replyText }) }); const data = await response.json(); if (data.success) { await fetchAllConversations(); } else { alert(`回覆失敗：${data.message}`); } } catch (error) { console.error('回覆請求失敗:', error); alert('網路錯誤，回覆失敗。'); } finally { startFetching(); } } async function fetchAllConversations() { try { const response = await fetch(`${API_BASE_URL}/api/admin/conversations`); const latestData = await response.json(); if (JSON.stringify(latestData) !== JSON.stringify(allConversationsData)) { allConversationsData = latestData; renderUserList(); if (currentSelectedUserId) { renderChatWindow(); } } } catch (error) { console.error('獲取所有對話失敗:', error); clearInterval(fetchInterval); userListEl.innerHTML = `<li class="user-item" style="color: red;">無法連接伺服器</li>`; } } function startFetching() { fetchAllConversations(); if (fetchInterval) clearInterval(fetchInterval); fetchInterval = setInterval(fetchAllConversations, 5000); } startFetching(); }
+        
         // ===============================================
-        //           面板切換邏輯
-        // ===============================================
-        function initPanelSwitching() {
-            const navChatBtn = document.getElementById('nav-chat');
-            const navCalendarBtn = document.getElementById('nav-calendar');
-            const chatPanel = document.getElementById('customer-service-panel');
-            const calendarPanel = document.getElementById('calendar-admin-panel');
-            navChatBtn.addEventListener('click', () => {
-                navChatBtn.classList.add('active'); navCalendarBtn.classList.remove('active');
-                chatPanel.classList.add('active'); calendarPanel.classList.remove('active');
-            });
-            navCalendarBtn.addEventListener('click', () => {
-                navCalendarBtn.classList.add('active'); navChatBtn.classList.remove('active');
-                calendarPanel.classList.add('active'); chatPanel.classList.remove('active');
-            });
-        }
-
-        // ===============================================
-        //           客服系統邏輯 (已修正)
-        // ===============================================
-        function initCustomerServicePanel() {
-            const userListEl = document.getElementById('user-list');
-            const chatHeaderTitleEl = document.getElementById('chat-header-title');
-            const chatWindowEl = document.getElementById('chat-window');
-            let allConversationsData = []; 
-            let currentSelectedUserId = null;
-            let fetchInterval;
-
-            function renderUserList() {
-                const currentActiveId = currentSelectedUserId;
-                userListEl.innerHTML = '';
-                if (allConversationsData.length === 0) { userListEl.innerHTML = '<li class="user-item">尚無任何對話</li>'; return; }
-                allConversationsData.forEach(convo => {
-                    const li = document.createElement('li'); li.className = 'user-item';
-                    // **【修正】** 使用 convo.userId, 而非 _id
-                    li.textContent = convo.username;
-                    li.dataset.userId = convo.userId; 
-                    if (convo.userId === currentActiveId) { li.classList.add('active'); }
-                    li.addEventListener('click', () => {
-                        if (currentSelectedUserId !== convo.userId) { 
-                            currentSelectedUserId = convo.userId;
-                            renderUserList(); 
-                            renderChatWindow();
-                        }
-                    });
-                    userListEl.appendChild(li);
-                });
-            }
-            
-            function renderChatWindow() {
-                if (!currentSelectedUserId) { chatHeaderTitleEl.textContent = '選擇一個對話'; chatWindowEl.innerHTML = '<p id="chat-placeholder">請從左側選擇一位顧客以查看對話紀錄。</p>'; return; }
-                const conversation = allConversationsData.find(c => c.userId === currentSelectedUserId);
-                if (!conversation) { chatHeaderTitleEl.textContent = '用戶不存在'; chatWindowEl.innerHTML = '<p id="chat-placeholder">該用戶對話已不存在。</p>'; return; }
-                chatWindowEl.innerHTML = ''; 
-                chatHeaderTitleEl.textContent = `與 ${conversation.username} 的對話`;
-                if (conversation.messages.length === 0) { chatWindowEl.innerHTML = '<p id="chat-placeholder">此用戶尚未發送任何訊息。</p>'; return; }
-                
-                conversation.messages.forEach(msg => {
-                    const groupDiv = document.createElement('div');
-                    groupDiv.className = 'message-group';
-                    let answerHTML = '';
-                    
-                    // **【修正】** 所有 msg.id 都改為 msg._id
-                    if (msg.staffReply) {
-                        answerHTML = `<p><b>您的回覆:</b> ${msg.staffReply}</p>`;
-                    } else {
-                        answerHTML = `<p><b>您的回覆:</b> <i>尚未回覆</i></p>
-                                    <div class="reply-area">
-                                        <input type="text" class="reply-input" id="reply-input-${msg._id}" placeholder="請在此輸入回覆...">
-                                        <button class="reply-button" data-user-id="${currentSelectedUserId}" data-message-id="${msg._id}">送出</button>
-                                    </div>`;
-                    }
-                    groupDiv.innerHTML = `<div class="customer-question">
-                                             <p><b>顧客 (ID: ${msg._id}):</b> ${msg.customerMessage}</p>
-                                          </div>
-                                          <div class="staff-answer">${answerHTML}</div>`;
-                    chatWindowEl.appendChild(groupDiv);
-                });
-                
-                chatWindowEl.onclick = function(event) {
-                    if (event.target.classList.contains('reply-button')) {
-                        const userId = event.target.dataset.userId;
-                        const messageId = event.target.dataset.messageId; // 這將是 MongoDB 的 _id 字串
-                        sendReply(userId, messageId);
-                    }
-                }
-                chatWindowEl.scrollTop = chatWindowEl.scrollHeight;
-            }
-
-            async function sendReply(userId, messageId) {
-                // **【修正】** 不再需要 parseInt，因為 messageId 本身就是我們要的字串
-                if (!messageId) return alert('無效的訊息 ID。');
-
-                const inputEl = document.getElementById(`reply-input-${messageId}`); 
-                const replyText = inputEl.value.trim();
-                if (!replyText) return alert('回覆內容不能為空！');
-                
-                try {
-                    clearInterval(fetchInterval);
-                    const response = await fetch(`${API_BASE_URL}/api/admin/reply`, { 
-                        method: 'POST', 
-                        headers: { 'Content-Type': 'application/json' }, 
-                        body: JSON.stringify({ userId, messageId, replyText }) // 直接傳送 _id 字串
-                    });
-                    const data = await response.json(); 
-                    if (data.success) { 
-                        await fetchAllConversations(); 
-                    } else { 
-                        alert(`回覆失敗：${data.message}`); 
-                    }
-                } catch (error) { 
-                    console.error('回覆請求失敗:', error); 
-                    alert('網路錯誤，回覆失敗。'); 
-                } finally { 
-                    startFetching(); 
-                }
-            }
-            
-            async function fetchAllConversations() {
-                try {
-                    const response = await fetch(`${API_BASE_URL}/api/admin/conversations`);
-                    const latestData = await response.json();
-                    if (JSON.stringify(latestData) !== JSON.stringify(allConversationsData)) {
-                        allConversationsData = latestData;
-                        renderUserList();
-                        if (currentSelectedUserId) {
-                            renderChatWindow();
-                        }
-                    }
-                } catch (error) {
-                    console.error('獲取所有對話失敗:', error);
-                    clearInterval(fetchInterval);
-                    userListEl.innerHTML = `<li class="user-item" style="color: red;">無法連接伺服器</li>`;
-                }
-            }
-            function startFetching() {
-                fetchAllConversations();
-                if (fetchInterval) clearInterval(fetchInterval);
-                fetchInterval = setInterval(fetchAllConversations, 5000);
-            }
-            startFetching();
-        }
-
-        // ===============================================
-        //           日曆管理系統邏輯
+        //           日曆管理系統邏輯 (v5.3 - 允許多活動)
         // ===============================================
         function initCalendarAdminPanel() {
             let currentDate = new Date();
-            let events = {};
+            let eventsByDate = {}; // Renamed for clarity
             let selectedDateStr = null;
+            
             const gridEl = document.getElementById('calendar-grid');
             const monthYearEl = document.getElementById('current-month-year');
             const detailHeaderEl = document.querySelector('#date-detail-panel .detail-header');
             const detailContentEl = document.getElementById('detail-content');
 
-            function renderEventDetails(event) {
-                let menuDisplay = '';
-                if(event.menuType === 'text') { menuDisplay = `<p style="white-space: pre-wrap;">${event.menuContent}</p>`; } 
-                else if(event.menuType === 'image') { menuDisplay = `<a href="${event.menuContent}" target="_blank"><img src="${event.menuContent}" alt="菜單圖片" class="menu-image"></a>`; }
+            function renderCalendar() {
+                gridEl.innerHTML = '';
+                const year = currentDate.getFullYear();
+                const month = currentDate.getMonth();
+                monthYearEl.textContent = `${year}年 ${month + 1}月`;
+                const firstDayOfMonth = new Date(year, month, 1).getDay();
+                const daysInMonth = new Date(year, month + 1, 0).getDate();
+                for (let i = 0; i < firstDayOfMonth; i++) { gridEl.innerHTML += `<div class="calendar-day not-current-month"></div>`; }
+                for (let i = 1; i <= daysInMonth; i++) {
+                    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+                    const dayEl = document.createElement('div');
+                    dayEl.className = 'calendar-day';
+                    dayEl.dataset.date = dateStr;
 
-                let ordersHtml = '';
-                if (event.orders && event.orders.length > 0) {
-                    const orderItems = event.orders.map(order => `
-                        <li class="order-list-item">
-                            <div class="order-user">${order.username || '未知用戶'} (ID: ${order.userId})</div>
-                            <div class="order-text">${order.orderText}</div>
-                        </li>
-                    `).join('');
-                    ordersHtml = `<ul class="order-list">${orderItems}</ul>`;
-                } else {
-                    ordersHtml = `<p style="color: var(--text-secondary-color);"><i>目前尚無點餐紀錄。</i></p>`;
+                    const dayText = document.createElement('span');
+                    dayText.textContent = i;
+                    dayEl.appendChild(dayText);
+
+                    const eventsToday = eventsByDate[dateStr];
+                    if (eventsToday && eventsToday.length > 0) {
+                        dayEl.classList.add('has-event');
+                        // **新增**: 顯示活動數量角標
+                        const badge = document.createElement('div');
+                        badge.className = 'event-count-badge';
+                        badge.textContent = eventsToday.length;
+                        dayEl.appendChild(badge);
+                    }
+                    if (dateStr === selectedDateStr) dayEl.classList.add('selected');
+                    dayEl.addEventListener('click', () => handleDayClick(dateStr));
+                    gridEl.appendChild(dayEl);
                 }
+            }
+            
+            // --- **核心修改**: 顯示當天所有活動列表 ---
+            function renderDateDetails(dateStr) {
+                selectedDateStr = dateStr;
+                detailHeaderEl.innerHTML = `<span class="detail-date">${dateStr}</span>`;
+                const eventsToday = eventsByDate[dateStr] || [];
 
-                detailContentEl.innerHTML = `
-                    <div class="event-info">
-                        <p><span>店家:</span><br>${event.vendorName}</p>
-                        <p><span>截止時間:</span><br>${new Date(event.deadline).toLocaleString('sv-SE')}</p>
-                        <p><span>點餐狀態:</span><br>${event.isClosed ? '已截止' : '開放中'}</p>
-                        <div>
-                           <p style="margin-bottom:0.5rem;"><span>菜單:</span></p>
-                           ${menuDisplay}
+                let eventsHtml = eventsToday.map(event => {
+                    let menuDisplay = event.menuType === 'text'
+                        ? `<p style="white-space: pre-wrap;">${event.menuContent}</p>`
+                        : `<a href="${event.menuContent}" target="_blank"><img src="${event.menuContent}" alt="菜單圖片" class="menu-image"></a>`;
+                    
+                    let ordersHtml = (event.orders && event.orders.length > 0)
+                        ? `<ul class="order-list">${event.orders.map(o => `<li class="order-list-item"><div class="order-user">${o.username}</div><div class="order-text">${o.orderText}</div></li>`).join('')}</ul>`
+                        : `<p style="color: var(--text-secondary-color);"><i>尚無點餐紀錄。</i></p>`;
+
+                    return `
+                        <div class="event-card">
+                            <div class="event-info">
+                                <p><span>店家:</span><br>${event.vendorName}</p>
+                                <p><span>截止時間:</span><br>${new Date(event.deadline).toLocaleString('sv-SE')}</p>
+                            </div>
+                            <hr style="border-color: var(--border-color); margin: 1rem 0;">
+                            <h4>菜單</h4>
+                            ${menuDisplay}
+                            <hr style="border-color: var(--border-color); margin: 1rem 0;">
+                            <h4>點餐紀錄 (${event.orders.length})</h4>
+                            ${ordersHtml}
                         </div>
-                    </div>
-                    <hr style="border-color: var(--border-color); margin: 2rem 0;">
-                    <div>
-                        <h3>點餐紀錄 (共 ${event.orders.length} 筆)</h3>
-                        <div id="order-list-container">${ordersHtml}</div>
-                    </div>
+                    `;
+                }).join('');
+                
+                detailContentEl.innerHTML = `
+                    ${eventsHtml}
+                    <button class="add-event-btn" data-date="${dateStr}">+ 新增本日其他活動</button>
+                    <div id="add-event-form-container" style="display: none; margin-top: 2rem;"></div>
+                `;
+
+                document.querySelector('.add-event-btn').addEventListener('click', e => {
+                    const date = e.target.dataset.date;
+                    const formContainer = document.getElementById('add-event-form-container');
+                    formContainer.style.display = 'block';
+                    formContainer.innerHTML = getEventCreationFormHtml(date);
+                    bindFormEvents(formContainer.querySelector('form'));
+                    e.target.style.display = 'none'; // Hide the add button
+                });
+            }
+            
+            // --- 其餘函式 ---
+            function handleDayClick(dateStr) {
+                renderDateDetails(dateStr);
+                renderCalendar(); // Rerender to update 'selected' class
+            }
+            
+            function getEventCreationFormHtml(dateStr) {
+                return `
+                    <form id="event-form" class="event-card">
+                        <h4>新增 ${dateStr} 的活動</h4>
+                        <input type="hidden" name="date" value="${dateStr}">
+                        <div class="form-group"><label for="vendorName">店家名稱</label><input type="text" id="vendorName" name="vendorName" required></div>
+                        <div class="form-group"><label for="deadline">點餐截止時間</label><input type="datetime-local" id="deadline" name="deadline" required></div>
+                        <div class="form-group"><label>菜單類型</label><div class="radio-group"><input type="radio" id="menuTypeText" name="menuType" value="text" checked><label for="menuTypeText">文字菜單</label><input type="radio" id="menuTypeImage" name="menuType" value="image"><label for="menuTypeImage">圖片菜單</label></div></div>
+                        <div id="menu-input-area">
+                            <div class="form-group" id="text-menu-group"><label for="menuContent">菜單內容</label><textarea id="menuContent" name="menuContent"></textarea></div>
+                            <div class="form-group" id="image-menu-group" style="display:none;"><label for="menuImage">上傳圖片</label><input type="file" id="menuImage" name="menuImage" accept="image/*"></div>
+                        </div>
+                        <button type="submit" class="form-btn">建立活動</button>
+                    </form>
                 `;
             }
 
-            // 省略無變動的輔助函式
-            async function fetchEventsAndRenderCalendar() { try { const response = await fetch(`${API_BASE_URL}/api/calendar/events`); if (!response.ok) throw new Error('無法獲取日曆事件'); events = await response.json(); renderCalendar(); if (selectedDateStr) handleDayClick(selectedDateStr, false); } catch (error) { console.error("獲取日曆事件失敗:", error); detailContentEl.innerHTML = `<p style="color: var(--error-color);">無法載入日曆資料，請刷新頁面。</p>` } }
-            function renderCalendar() { gridEl.innerHTML = ''; const year = currentDate.getFullYear(); const month = currentDate.getMonth(); monthYearEl.textContent = `${year}年 ${month + 1}月`; const firstDayOfMonth = new Date(year, month, 1).getDay(); const daysInMonth = new Date(year, month + 1, 0).getDate(); for (let i = 0; i < firstDayOfMonth; i++) { gridEl.innerHTML += `<div class="calendar-day not-current-month"></div>`; } for (let i = 1; i <= daysInMonth; i++) { const dayEl = document.createElement('div'); const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`; dayEl.className = 'calendar-day'; dayEl.textContent = i; dayEl.dataset.date = dateStr; if (events[dateStr]) dayEl.classList.add('has-event'); if (dateStr === selectedDateStr) dayEl.classList.add('selected'); dayEl.addEventListener('click', () => handleDayClick(dateStr, true)); gridEl.appendChild(dayEl); } }
-            function handleDayClick(dateStr, needsRender) { selectedDateStr = dateStr; detailHeaderEl.innerHTML = `<span class="detail-date">${dateStr}</span>`; if (events[dateStr]) { renderEventDetails(events[dateStr]); } else { renderEventCreationForm(dateStr); } if(needsRender) renderCalendar(); }
-            async function handleFormSubmit(e) { e.preventDefault(); const form = e.target; const submitBtn = form.querySelector('.form-btn'); submitBtn.disabled = true; submitBtn.textContent = '傳送中...'; const formData = new FormData(form); try { const response = await fetch(`${API_BASE_URL}/api/admin/calendar/event`, { method: 'POST', body: formData }); const result = await response.json(); if (!response.ok || !result.success) throw new Error(result.message || '建立失敗'); alert('點餐活動建立成功！'); fetchEventsAndRenderCalendar(); } catch(error) { alert(`錯誤：${error.message}`); submitBtn.disabled = false; submitBtn.textContent = '建立活動'; } }
-            function renderEventCreationForm(dateStr) { detailContentEl.innerHTML = `<form id="event-form"><input type="hidden" name="date" value="${dateStr}"><div class="form-group"><label for="vendorName">店家名稱</label><input type="text" id="vendorName" name="vendorName" required></div><div class="form-group"><label for="deadline">點餐截止時間</label><input type="datetime-local" id="deadline" name="deadline" required></div><div class="form-group"><label>菜單類型</label><div class="radio-group"><input type="radio" id="menuTypeText" name="menuType" value="text" checked><label for="menuTypeText">文字菜單</label><input type="radio" id="menuTypeImage" name="menuType" value="image"><label for="menuTypeImage">圖片菜單</label></div></div><div id="menu-input-area"><div class="form-group" id="text-menu-group"><label for="menuContent">菜單內容 (每行一個品項)</label><textarea id="menuContent" name="menuContent"></textarea></div><div class="form-group" id="image-menu-group" style="display:none;"><label for="menuImage">上傳菜單圖片</label><input type="file" id="menuImage" name="menuImage" accept="image/*"></div></div><button type="submit" class="form-btn">建立活動</button></form>`; const form = document.getElementById('event-form'); form.addEventListener('submit', handleFormSubmit); const menuTypeText = document.getElementById('menuTypeText'); const menuTypeImage = document.getElementById('menuTypeImage'); const textMenuGroup = document.getElementById('text-menu-group'); const imageMenuGroup = document.getElementById('image-menu-group'); menuTypeText.addEventListener('change', () => { textMenuGroup.style.display = 'block'; imageMenuGroup.style.display = 'none'; }); menuTypeImage.addEventListener('change', () => { textMenuGroup.style.display = 'none'; imageMenuGroup.style.display = 'block'; }); }
+            function bindFormEvents(formElement) {
+                if(!formElement) return;
+                formElement.addEventListener('submit', handleFormSubmit);
+                const menuTypeText = formElement.querySelector('#menuTypeText');
+                const menuTypeImage = formElement.querySelector('#menuTypeImage');
+                const textMenuGroup = formElement.querySelector('#text-menu-group');
+                const imageMenuGroup = formElement.querySelector('#image-menu-group');
+                menuTypeText.addEventListener('change', () => { textMenuGroup.style.display = 'block'; imageMenuGroup.style.display = 'none'; });
+                menuTypeImage.addEventListener('change', () => { textMenuGroup.style.display = 'none'; imageMenuGroup.style.display = 'block'; });
+            }
+
+            async function handleFormSubmit(e) { /* unchanged */ }
+            async function fetchEventsAndRenderCalendar() { /* unchanged */ }
+
+            // Unchanged helper functions
+            async function handleFormSubmit(e) { e.preventDefault(); const form = e.target; const submitBtn = form.querySelector('.form-btn'); submitBtn.disabled = true; submitBtn.textContent = '傳送中...'; const formData = new FormData(form); try { const response = await fetch(`${API_BASE_URL}/api/admin/calendar/event`, { method: 'POST', body: formData }); const result = await response.json(); if (!response.ok || !result.success) throw new Error(result.message || '建立失敗'); alert('點餐活動建立成功！'); await fetchEventsAndRenderCalendar(); } catch(error) { alert(`錯誤：${error.message}`); submitBtn.disabled = false; submitBtn.textContent = '建立活動'; } }
+            async function fetchEventsAndRenderCalendar() { try { const response = await fetch(`${API_BASE_URL}/api/calendar/events`); if (!response.ok) throw new Error('無法獲取日曆事件'); eventsByDate = await response.json(); renderCalendar(); if (selectedDateStr) { handleDayClick(selectedDateStr); } } catch (error) { console.error("獲取日曆事件失敗:", error); detailContentEl.innerHTML = `<p style="color: var(--error-color);">無法載入日曆資料，請刷新頁面。</p>` } }
+
             document.getElementById('prev-month-btn').addEventListener('click', () => { currentDate.setMonth(currentDate.getMonth() - 1); renderCalendar(); });
             document.getElementById('next-month-btn').addEventListener('click', () => { currentDate.setMonth(currentDate.getMonth() + 1); renderCalendar(); });
             fetchEventsAndRenderCalendar();
         }
     </script>
-
 </body>
 </html>
