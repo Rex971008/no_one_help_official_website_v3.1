@@ -12,10 +12,18 @@
 <body>
     
     <div class="hero-background"></div>
-    <div class="sidebar-overlay"></div>
 
     <nav class="sidebar" aria-label="全站導航選單">
-        <div class="sidebar-header"><h2 class="text-gradient" style="text-align: center; font-size: 2rem; padding: 1rem 0;">外送沒人幫</h2></div>
+        <div class="sidebar-header">
+             <!-- v6.0: 以下兩個區塊由 JS 控制顯示/隱藏 -->
+            <div id="sidebar-default-header">
+                <h2 class="text-gradient" style="text-align: center; font-size: 2rem; padding: 1rem 0;">外送沒人幫</h2>
+            </div>
+            <div id="user-info-bar" style="display: none;">
+                <p>你好，<span id="user-info-username" class="username"></span></p>
+                <p>餘額: <span id="user-info-balance" class="balance"></span></p>
+            </div>
+        </div>
         <ul class="sidebar-nav">
             <li style="--i:1;"><a href="#" data-target="page-home" class="sidebar-link active-link">主頁</a></li>
             <li style="--i:2;"><a href="#" data-target="page-menu" class="sidebar-link">合作店家一覽</a></li>
@@ -103,10 +111,6 @@
             <div id="page-calendar" class="page-content">
                 <section>
                     <div class="container">
-                        <div style="text-align:center;">
-                            <h2 class="section-title">點餐月曆</h2>
-                            <p class="section-subtitle">請點擊日期查看或進行點餐。</p>
-                        </div>
                         <div class="calendar-container">
                             <div class="calendar-header">
                                 <button id="prev-month-btn"><</button>
@@ -118,6 +122,9 @@
                             </div>
                             <div class="calendar-grid" id="calendar-grid"></div>
                         </div>
+                        <div id="calendar-detail-view">
+                            <!-- JS Will Render Event Details Here -->
+                        </div>
                     </div>
                 </section>
             </div>
@@ -128,6 +135,7 @@
         </footer>
     </div>
     
+    <!-- 店家菜單 Modal -->
     <div id="vendor-modal" class="modal-overlay">
         <div class="modal-content">
             <button class="modal-close-btn">×</button>
@@ -147,6 +155,32 @@
              <div style="text-align: center; margin-top: 1.5rem;">
                 <h3 class="modal-section-title">菜單</h3>
                 <div id="modal-vendor-menu"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- v6.0 新增: 修改密碼 Modal -->
+    <div id="change-password-modal" class="modal-overlay">
+        <div class="modal-content">
+            <button class="modal-close-btn">×</button>
+            <h2 class="modal-title text-gradient">修改密碼</h2>
+            <form id="change-password-form" class="auth-form-container" style="padding: 1rem 0; border:none; background: none;">
+                <input type="password" id="old-password" class="auth-input" placeholder="請輸入舊密碼" required>
+                <input type="password" id="new-password" class="auth-input" placeholder="請輸入新密碼" required>
+                <input type="password" id="confirm-password" class="auth-input" placeholder="請再次輸入新密碼" required>
+                <p id="password-error-msg" style="color: var(--error-color); min-height: 1.2em;"></p>
+                <button type="submit" id="change-password-btn" class="auth-btn">確認修改</button>
+            </form>
+        </div>
+    </div>
+    
+    <!-- v6.0 新增: 交易紀錄 Modal -->
+    <div id="transactions-modal" class="modal-overlay">
+         <div class="modal-content">
+            <button class="modal-close-btn">×</button>
+            <h2 class="modal-title text-gradient">帳戶明細</h2>
+            <div id="transaction-modal-body" style="margin-top: 2rem;">
+                <!-- JS will render table here -->
             </div>
         </div>
     </div>
