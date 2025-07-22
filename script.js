@@ -1,10 +1,11 @@
-/* 檔案: script.js (黃金存檔最終版 - 請補上 vendorData) */
+/* 檔案: script.js (黃金存檔最終版 - 整合日曆點餐系統) */
 
 document.addEventListener('DOMContentLoaded', () => {
     // ================== 全局變數 & API 設定 ==================
-    const API_BASE_URL = 'https://no-one-help-official-website-v3-1.onrender.com'; // 部署時記得改成你的 Render URL
+    const API_BASE_URL = 'https://no-one-help-official-website-v3-1.onrender.com';
     let chatInterval;
-    let currentDate = new Date(); // 用於月曆的目前日期
+    let currentDate = new Date(); // 月曆的目前日期
+    let calendarEventsData = {}; // **新增**: 存放從後端獲取的日曆事件
     const body = document.body;
 
     // ================== 獲取所有頁面和關鍵元素 ==================
@@ -29,6 +30,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const messageInput = document.getElementById('messageInput');
     const sendButton = document.getElementById('sendButton');
     const logoutBtn = document.getElementById('logout-btn');
+
+    // **月曆頁面相關元素**
+    const calendarPageContainer = document.querySelector('#page-calendar .container'); // **修改**: 獲取整個容器
     const calendarGrid = document.getElementById('calendar-grid');
     const currentMonthYearEl = document.getElementById('current-month-year');
     const prevMonthBtn = document.getElementById('prev-month-btn');
@@ -43,7 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // ================== 核心：頁面切換邏輯 ==================
-    function switchPage(targetId) {
+    async function switchPage(targetId) { // **修改**: 改為 async function
         if (targetId === 'page-customer-service' && !Auth.isLoggedIn()) {
             targetId = 'page-login';
         }
@@ -70,21 +74,25 @@ document.addEventListener('DOMContentLoaded', () => {
         window.scrollTo(0, 0);
         if (targetId === 'page-menu') initDynamicBackground();
         if (targetId === 'page-customer-service') startChatSession();
-        if (targetId === 'page-calendar') renderCalendar();
+        if (targetId === 'page-calendar') await fetchCalendarEvents(); // **修改**: 改為獲取遠端資料
     }
 
     // ================== 事件綁定 ==================
     if (hamburgerButton) hamburgerButton.addEventListener('click', () => body.classList.toggle('sidebar-open'));
     if (sidebarOverlay) sidebarOverlay.addEventListener('click', () => body.classList.toggle('sidebar-open'));
     sidebarLinks.forEach(link => {
-        link.addEventListener('click', (e) => {
-            e.preventDefault();
-            switchPage(link.dataset.target);
-            if (body.classList.contains('sidebar-open')) { body.classList.toggle('sidebar-open'); }
-        });
+        link.addEventListener('click', (e) => { e.preventDefault(); switchPage(link.dataset.target); if (body.classList.contains('sidebar-open')) { body.classList.toggle('sidebar-open'); } });
     });
     if (goToRegisterLink) goToRegisterLink.addEventListener('click', (e) => { e.preventDefault(); switchPage('page-register'); });
     if (goToLoginLink) goToLoginLink.addEventListener('click', (e) => { e.preventDefault(); switchPage('page-login'); });
+    if (registerBtn) registerBtn.addEventListener('click', async () => { /* ...無變動... */ });
+    if (loginBtn) loginBtn.addEventListener('click', async () => { /* ...無變動... */ });
+    if (logoutBtn) logoutBtn.addEventListener('click', () => { Auth.clearToken(); stopChatSession(); switchPage('page-home'); alert('您已成功登出。'); }); // **修改**: 增加提示
+    if (sendButton) sendButton.addEventListener('click', sendChatMessage);
+    if (messageInput) messageInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); sendChatMessage(); } });
+    if (prevMonthBtn) prevMonthBtn.addEventListener('click', () => { currentDate.setMonth(currentDate.getMonth() - 1); renderCalendar(); });
+    if (nextMonthBtn) nextMonthBtn.addEventListener('click', () => { currentDate.setMonth(currentDate.getMonth() + 1); renderCalendar(); });
+    // (無變動部分省略)
     if (registerBtn) registerBtn.addEventListener('click', async () => {
         const username = registerUsernameInput.value.trim();
         const password = registerPasswordInput.value.trim();
@@ -105,15 +113,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (response.ok && data.success) { Auth.saveToken(data.token); switchPage('page-customer-service'); } else { alert(`登入失敗：${data.message}`); }
         } catch (error) { alert('登入請求失敗，請檢查網絡或稍後再試。'); }
     });
-    if (logoutBtn) logoutBtn.addEventListener('click', () => { Auth.clearToken(); stopChatSession(); switchPage('page-home'); });
-    if (sendButton) sendButton.addEventListener('click', sendChatMessage);
-    if (messageInput) messageInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); sendChatMessage(); } });
-    if (prevMonthBtn) prevMonthBtn.addEventListener('click', () => { currentDate.setMonth(currentDate.getMonth() - 1); renderCalendar(); });
-    if (nextMonthBtn) nextMonthBtn.addEventListener('click', () => { currentDate.setMonth(currentDate.getMonth() + 1); renderCalendar(); });
-
     // ================== 功能性函數 ==================
+    // --- 客服系統 (無變動) ---
     function startChatSession() { if (chatInterval) clearInterval(chatInterval); fetchChatMessages(); chatInterval = setInterval(fetchChatMessages, 3000); }
     function stopChatSession() { clearInterval(chatInterval); }
+    async function fetchChatMessages() { /* ...無變動... */ }
+    async function sendChatMessage() { /* ...無變動... */ }
+    // (無變動部分省略)
     async function fetchChatMessages() {
         const token = Auth.getToken(); if (!token || !chatBox) return;
         try {
@@ -134,21 +140,146 @@ document.addEventListener('DOMContentLoaded', () => {
         try { await fetch(`${API_BASE_URL}/api/message`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': token }, body: JSON.stringify({ message }) }); messageInput.value = ''; fetchChatMessages();
         } catch (error) { console.error('訊息發送失敗:', error); }
     }
-    function renderCalendar() {
+
+    // --- **點餐月曆系統 (完全重寫)** ---
+    async function fetchCalendarEvents() {
+        if (!calendarPageContainer) return;
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/calendar/events`);
+            if (!response.ok) throw new Error('獲取活動資料失敗');
+            calendarEventsData = await response.json();
+            renderCalendar(); // 初始渲染日曆
+            // 預設選中今天
+            const today = new Date();
+            const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+            renderEventDetails(todayStr); // 預設顯示今天的詳情
+
+        } catch (error) {
+            console.error(error);
+            const calendarContainer = document.querySelector('.calendar-container');
+            if (calendarContainer) calendarContainer.innerHTML = `<p style="text-align: center; color: var(--text-secondary-color);">無法載入點餐活動，請稍後再試。</p>`
+        }
+    }
+    
+    function renderCalendar(selectedDate) {
         if (!calendarGrid || !currentMonthYearEl) return;
-        const year = currentDate.getFullYear(); const month = currentDate.getMonth();
-        currentMonthYearEl.textContent = `${year}年 ${month + 1}月`; calendarGrid.innerHTML = '';
-        const firstDayOfMonth = new Date(year, month, 1).getDay(); const daysInMonth = new Date(year, month + 1, 0).getDate();
-        for (let i = 0; i < firstDayOfMonth; i++) { const emptyDay = document.createElement('div'); emptyDay.className = 'calendar-day not-current-month'; calendarGrid.appendChild(emptyDay); }
-        const today = new Date();
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth();
+        currentMonthYearEl.textContent = `${year}年 ${month + 1}月`;
+        calendarGrid.innerHTML = '';
+        const firstDayOfMonth = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        for (let i = 0; i < firstDayOfMonth; i++) { calendarGrid.innerHTML += `<div class="calendar-day not-current-month"></div>`; }
+
         for (let i = 1; i <= daysInMonth; i++) {
-            const dayElement = document.createElement('div'); dayElement.className = 'calendar-day active-day'; dayElement.textContent = i;
-            dayElement.dataset.date = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
-            if (year === today.getFullYear() && month === today.getMonth() && i === today.getDate()) { dayElement.classList.add('today'); }
-            dayElement.addEventListener('click', (event) => { const clickedDate = event.currentTarget.dataset.date; alert(`您點擊了：${clickedDate}\n這裡將會顯示當日的菜單和點餐選項。`); });
+            const dayElement = document.createElement('div');
+            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+            dayElement.className = 'calendar-day active-day';
+            dayElement.textContent = i;
+            if (calendarEventsData[dateStr]) dayElement.classList.add('has-event');
+            if (dateStr === selectedDate) dayElement.classList.add('today'); // "today" class now means "selected"
+            
+            dayElement.addEventListener('click', () => renderEventDetails(dateStr));
             calendarGrid.appendChild(dayElement);
         }
     }
+
+    function renderEventDetails(dateStr) {
+        // 先移除舊的詳情視圖
+        const oldDetailView = document.getElementById('calendar-detail-view');
+        if (oldDetailView) oldDetailView.remove();
+        
+        renderCalendar(dateStr); // 重新渲染日曆以更新選中樣式
+
+        const event = calendarEventsData[dateStr];
+        const detailView = document.createElement('div');
+        detailView.id = 'calendar-detail-view';
+        
+        if (!event) {
+            detailView.innerHTML = `<h3 class="detail-vendor-name">本日無點餐活動</h3><p class="detail-deadline">請選擇其他有標示的日期。</p>`;
+        } else {
+            const isClosed = event.isClosed || new Date() > new Date(event.deadline);
+            let menuHtml = '';
+            if (event.menuType === 'text') {
+                menuHtml = `<div class="modal-placeholder">${event.menuContent.replace(/\n/g, '<br>')}</div>`;
+            } else if (event.menuType === 'image') {
+                menuHtml = `<a href="${event.menuContent}" target="_blank"><img src="${event.menuContent}" alt="菜單" class="detail-menu-image"></a>`;
+            }
+
+            let orderSectionHtml = '';
+            if (!Auth.isLoggedIn()) {
+                orderSectionHtml = `<p class="order-status">請先<a href="#" id="login-from-calendar">登入</a>以進行點餐。</p>`;
+            } else if (isClosed) {
+                orderSectionHtml = `<p class="order-status">本日點餐已截止。</p>`;
+            } else {
+                const userId = Auth.getToken();
+                const existingOrder = event.orders.find(o => o.userId === userId);
+                const orderText = existingOrder ? existingOrder.orderText : "";
+                
+                orderSectionHtml = `
+                    <div class="order-submission-area">
+                        <h4>${existingOrder ? '編輯您的訂單' : '請輸入您的訂單'}</h4>
+                        <p>${existingOrder ? `上次更新時間: ${new Date(existingOrder.timestamp).toLocaleTimeString()}` : '（若要取消訂單，請將內容清空後送出）'}</p>
+                        <textarea id="order-textarea" class="order-textarea" placeholder="範例：招牌鍋貼一份，豆漿一杯">${orderText}</textarea>
+                        <button id="order-submit-btn" class="auth-btn">送出/更新訂單</button>
+                    </div>
+                `;
+            }
+
+            detailView.innerHTML = `
+                <h3 class="detail-vendor-name">${event.vendorName}</h3>
+                <p class="detail-deadline">截止時間：${new Date(event.deadline).toLocaleString()} ${isClosed ? '(已截止)' : ''}</p>
+                <div class="detail-menu-container">
+                    <h4>當日菜單</h4>
+                    ${menuHtml}
+                </div>
+                ${orderSectionHtml}
+            `;
+        }
+
+        calendarPageContainer.appendChild(detailView);
+        
+        // 動態綁定事件
+        const loginLink = document.getElementById('login-from-calendar');
+        if(loginLink) loginLink.addEventListener('click', (e) => { e.preventDefault(); switchPage('page-login'); });
+
+        const submitBtn = document.getElementById('order-submit-btn');
+        if(submitBtn) submitBtn.addEventListener('click', () => handleOrderSubmit(dateStr));
+    }
+    
+    async function handleOrderSubmit(dateStr) {
+        const token = Auth.getToken();
+        if(!token) return alert("請先登入！");
+
+        const textarea = document.getElementById('order-textarea');
+        const orderText = textarea.value; // 不 trim，允許只輸入空格
+        
+        const submitBtn = document.getElementById('order-submit-btn');
+        submitBtn.disabled = true;
+        submitBtn.textContent = '傳送中...';
+        
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/calendar/order`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': token },
+                body: JSON.stringify({ date: dateStr, orderText: orderText })
+            });
+
+            const result = await response.json();
+            if(!response.ok) throw new Error(result.message || "發生未知錯誤");
+
+            alert(result.message);
+            // 成功後刷新資料並重新渲染
+            await fetchCalendarEvents(); 
+
+        } catch(error) {
+            console.error("訂餐失敗:", error);
+            alert(`訂餐失敗：${error.message}`);
+            submitBtn.disabled = false;
+            submitBtn.textContent = '送出/更新訂單';
+        }
+    }
+
 
     // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
     // ★ 請在此處貼上您【所有】的店家資料陣列 ★
@@ -169,34 +300,30 @@ document.addEventListener('DOMContentLoaded', () => {
         if(vendorGrid) vendorGrid.addEventListener('click', (e) => { const card = e.target.closest('.vendor-card'); if(card) populateAndShowModal(card.dataset.vendorName); });
         if (searchInput) { renderVendors(); searchInput.addEventListener('input', (e) => renderVendors(e.target.value)); }
     }
+    function renderVendors(filter = '') { /* ...無變動... */ }
+    function populateAndShowModal(vendorName) { /* ...無變動... */ }
+    function openModal() { /* ...無變動... */ }
+    function closeModal() { /* ...無變動... */ }
+    function initDynamicBackground() { /* ...無變動... */ }
+    // (無變動部分省略)
     function renderVendors(filter = '') {
-        if (!vendorGrid) return;
-        vendorGrid.innerHTML = '';
-        const lowerCaseFilter = filter.toLowerCase();
+        if (!vendorGrid) return; vendorGrid.innerHTML = ''; const lowerCaseFilter = filter.toLowerCase();
         const filteredData = vendorData.filter(vendor => { if (!vendor.tags) vendor.tags = []; const nameMatch = (vendor.displayName || vendor.name).toLowerCase().includes(lowerCaseFilter); const tagMatch = vendor.tags.some(tag => tag.toLowerCase().includes(lowerCaseFilter)); return nameMatch || tagMatch; });
         if (filteredData.length === 0) { vendorGrid.innerHTML = `<p style="grid-column: 1 / -1; text-align: center; color: var(--text-secondary-color);">找不到符合條件的店家...</p>`; return; }
         filteredData.forEach(vendor => { const card = document.createElement('div'); card.className = 'vendor-card'; card.dataset.vendorName = vendor.name; let tagsHTML = ''; vendor.tags.forEach(tag => { let className = 'vendor-tag'; let tagText = tag; if (tag.startsWith('new')) { className += ' new'; tagText = '新店家'; } else if (tag.startsWith('closed:')) { className += ' closed'; tagText = tag.replace('closed:', ''); } tagsHTML += `<span class="${className}">${tagText}</span>`; }); card.innerHTML = `<div class="vendor-info-content"><h3 class="vendor-name">${vendor.displayName || vendor.name}</h3><div class="vendor-tags">${tagsHTML}</div></div><div class="vendor-action-text">點擊查看菜單</div>`; vendorGrid.appendChild(card); });
     }
     function populateAndShowModal(vendorName) {
-        const vendor = vendorData.find(v => v.name === vendorName);
-        if (!vendor || !modal) return;
+        const vendor = vendorData.find(v => v.name === vendorName); if (!vendor || !modal) return;
         modal.querySelector('#modal-vendor-name').textContent = vendor.displayName || vendor.name;
-        const phoneLink = modal.querySelector('#modal-vendor-phone');
-        if (vendor.phone && vendor.phone !== "無") { phoneLink.href = `tel:${vendor.phone}`; phoneLink.style.display = 'inline-flex'; modal.querySelector('#modal-vendor-phone-text').textContent = vendor.phone; } else { phoneLink.style.display = 'none'; }
+        const phoneLink = modal.querySelector('#modal-vendor-phone'); if (vendor.phone && vendor.phone !== "無") { phoneLink.href = `tel:${vendor.phone}`; phoneLink.style.display = 'inline-flex'; modal.querySelector('#modal-vendor-phone-text').textContent = vendor.phone; } else { phoneLink.style.display = 'none'; }
         modal.querySelector('#modal-vendor-map').href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(vendor.address || '高雄 ' + (vendor.displayName || vendor.name))}`;
-        const tagsContainer = modal.querySelector('#modal-vendor-tags');
-        tagsContainer.innerHTML = '';
-        if (vendor.tags) { vendor.tags.forEach(tag => { let className = 'vendor-tag'; let tagText = tag; if (tag.startsWith('new')) { className += ' new'; tagText = '新店家'; } else if (tag.startsWith('closed:')) { className += ' closed'; tagText = tag.replace('closed:', ''); } tagsContainer.innerHTML += `<span class="${className}">${tagText}</span>`; }); }
+        const tagsContainer = modal.querySelector('#modal-vendor-tags'); tagsContainer.innerHTML = ''; if (vendor.tags) { vendor.tags.forEach(tag => { let className = 'vendor-tag'; let tagText = tag; if (tag.startsWith('new')) { className += ' new'; tagText = '新店家'; } else if (tag.startsWith('closed:')) { className += ' closed'; tagText = tag.replace('closed:', ''); } tagsContainer.innerHTML += `<span class="${className}">${tagText}</span>`; }); }
         modal.querySelector('#modal-vendor-info').textContent = vendor.info || '無';
         const menuContainer = modal.querySelector('#modal-vendor-menu');
         if (vendor.menu && vendor.menu.length > 0) {
             menuContainer.className = 'modal-menu-grid'; menuContainer.innerHTML = '';
-            vendor.menu.forEach(item => {
-                if (item.type === 'subtitle') { menuContainer.innerHTML += `<h4 class="modal-menu-subtitle">${item.text}</h4>`;
-                } else { const priceText = (item.price === undefined || item.price === null) ? '' : (typeof item.price === 'string' ? item.price : `$${item.price}`); menuContainer.innerHTML += `<div class="modal-menu-item"><span class="modal-menu-name">${item.name}</span><span class="modal-menu-price">${priceText}</span></div>`; }
-            });
-        } else { menuContainer.className = 'modal-placeholder'; menuContainer.innerHTML = '菜單資訊準備中...'; }
-        openModal();
+            vendor.menu.forEach(item => { if (item.type === 'subtitle') { menuContainer.innerHTML += `<h4 class="modal-menu-subtitle">${item.text}</h4>`; } else { const priceText = (item.price === undefined || item.price === null) ? '' : (typeof item.price === 'string' ? item.price : `$${item.price}`); menuContainer.innerHTML += `<div class="modal-menu-item"><span class="modal-menu-name">${item.name}</span><span class="modal-menu-price">${priceText}</span></div>`; } });
+        } else { menuContainer.className = 'modal-placeholder'; menuContainer.innerHTML = '菜單資訊準備中...'; } openModal();
     }
     function openModal() { if (modal) { modal.classList.add('active'); body.classList.add('modal-open'); } }
     function closeModal() { if (modal) { modal.classList.remove('active'); body.classList.remove('modal-open'); } }
@@ -205,8 +332,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const images = [ 'https://images.unsplash.com/photo-1512152272829-e3139592d56f?q=80&w=2940&auto=format&fit=crop', 'https://images.unsplash.com/photo-1552611052-33e04de081de?q=80&w=2864&auto=format&fit=crop', 'https://images.unsplash.com/photo-1562967915-92ae0c320a01?q=80&w=2787&auto=format&fit=crop', 'https://images.unsplash.com/photo-1600891964092-4316c288032e?q=80&w=2940&auto=format&fit=crop' ];
         images.forEach(src => { new Image().src = src; const div = document.createElement('div'); div.className = 'bg-image'; div.style.backgroundImage = `url(${src})`; menuBackgroundContainer.appendChild(div); });
         menuBackgroundContainer.style.display = 'block';
-        const bgImages = menuBackgroundContainer.querySelectorAll('.bg-image');
-        let currentIndex = 0;
+        const bgImages = menuBackgroundContainer.querySelectorAll('.bg-image'); let currentIndex = 0;
         const changeBg = () => { if(document.getElementById('page-menu').classList.contains('page-active')) { bgImages.forEach(img => img.classList.remove('active')); bgImages[currentIndex].classList.add('active'); currentIndex = (currentIndex + 1) % bgImages.length; } };
         changeBg(); setInterval(changeBg, 7000);
     }
