@@ -1,4 +1,4 @@
-/* 檔案: script.js (v6.4 - 錯誤修正與功能還原版) */
+/* 檔案: script.js (v6.5 - 視覺還原最終版) */
 
 document.addEventListener('DOMContentLoaded', () => {
     // ================== 全局變數 & API 設定 ==================
@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
         body: document.body,
         hamburgerButton: document.querySelector('.hamburger-menu'),
         sidebar: document.querySelector('.sidebar'),
-        sidebarOverlay: document.querySelector('.sidebar-overlay'), // 恢復遮罩
+        sidebarOverlay: document.querySelector('.sidebar-overlay'),
         sidebarLinks: document.querySelectorAll('.sidebar-nav a.sidebar-link'),
         sidebarDefaultHeader: document.getElementById('sidebar-default-header'),
         userInfoBar: document.getElementById('user-info-bar'),
@@ -1294,16 +1294,116 @@ document.addEventListener('DOMContentLoaded', () => {
             { name: "新百齡", phone: "077611199", address: "高雄市鳳山區五甲二路466號", info: "與鳳山高中距離：約 3.4 公里 (開車約 9 分鐘，步行約 40 分鐘)", tags: ["new", "排骨飯"], menu: [] },
         ];
     
-    function setupOfficialWebsiteJS() { const faqItems=document.querySelectorAll('.faq-item'); faqItems.forEach(item=>{const q=item.querySelector('.faq-question'); if(q)q.addEventListener('click',()=>{item.classList.toggle('active');});}); const observer=new IntersectionObserver((entries)=>{entries.forEach(e=>{if(e.isIntersecting)e.target.classList.add('visible');});},{threshold:0.1}); document.querySelectorAll('.animate-on-scroll').forEach(el=>observer.observe(el)); if(elements.vendorGrid)elements.vendorGrid.addEventListener('click',(e)=>{const card=e.target.closest('.vendor-card');if(card)populateAndShowModal(card.dataset.vendorName);}); if(elements.vendorSearch){renderVendors();elements.vendorSearch.addEventListener('input',(e)=>renderVendors(e.target.value));}}
-    function renderVendors(filter = '') {
-        const grid = elements.vendorGrid; if (!grid) return; grid.innerHTML = '';
-        const lowerFilter = filter.toLowerCase();
-        const filtered = vendorData.filter(v => ((v.displayName || v.name).toLowerCase().includes(lowerFilter) || (v.tags || []).some(t => t.toLowerCase().includes(lowerFilter))));
-        if (filtered.length === 0) { grid.innerHTML = `<p style="grid-column: 1 / -1; text-align: center; color: var(--text-secondary-color);">找不到店家</p>`; return; }
-        filtered.forEach(vendor => { const card = document.createElement('div'); card.className = 'vendor-card'; card.dataset.vendorName = vendor.name; let tagsHTML = (vendor.tags || []).map(tag => { let className = 'vendor-tag'; let tagText = tag; if (tag.startsWith('new')) { className += ' new'; tagText = '新店家'; } else if (tag.startsWith('closed:')) { className += ' closed'; tagText = tag.replace('closed:', ''); } return `<span class="${className}">${tagText}</span>`; }).join(''); card.innerHTML = `<div class="vendor-card-content" style="padding:1.5rem; flex-grow:1;"><h3 class="vendor-name">${vendor.displayName || vendor.name}</h3><div class="vendor-tags" style="margin-top:0.5rem;">${tagsHTML}</div></div><div class="vendor-action-text" style="writing-mode:vertical-rl;padding:1rem 0.75rem;border-left:1px solid var(--border-color);color:var(--text-secondary-color);transition:color .3s;">點擊查看</div>`; grid.appendChild(card); });
+    // (還原為舊版完整函式)
+    function setupOfficialWebsiteJS() {
+        const faqItems = document.querySelectorAll('.faq-item'); faqItems.forEach(item => { const q = item.querySelector('.faq-question'); if (q) { q.addEventListener('click', () => { item.classList.toggle('active'); }); } });
+        const observer = new IntersectionObserver((entries) => { entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); }); }, { threshold: 0.1 });
+        document.querySelectorAll('.animate-on-scroll').forEach(el => observer.observe(el));
+        const vipCard = document.querySelector('.membership-card.vip'); if (vipCard && !vipCard.querySelector('.membership-content')) { const c = vipCard.innerHTML; vipCard.innerHTML = ''; const w = document.createElement('div'); w.className = 'membership-content'; w.innerHTML = c; vipCard.appendChild(w); }
+        if (elements.vendorGrid) { elements.vendorGrid.addEventListener('click', (e) => { const card = e.target.closest('.vendor-card'); if (card) populateAndShowModal(card.dataset.vendorName); }); }
+        if (elements.vendorSearch) { renderVendors(); elements.vendorSearch.addEventListener('input', (e) => renderVendors(e.target.value)); }
     }
-    function populateAndShowModal(vendorName) { const vendor = vendorData.find(v => v.name === vendorName); if (!vendor || !elements.vendorModal) return; elements.vendorModal.querySelector('#modal-vendor-name').textContent = vendor.displayName || vendor.name; const phoneLink = elements.vendorModal.querySelector('#modal-vendor-phone'); if (vendor.phone && vendor.phone !== "無") { phoneLink.href = `tel:${vendor.phone}`; phoneLink.style.display = 'inline-flex'; elements.vendorModal.querySelector('#modal-vendor-phone-text').textContent = vendor.phone; } else { phoneLink.style.display = 'none'; } elements.vendorModal.querySelector('#modal-vendor-map').href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(vendor.address || '高雄 ' + (vendor.displayName || vendor.name))}`; const tagsContainer = elements.vendorModal.querySelector('#modal-vendor-tags'); tagsContainer.innerHTML = ''; if (vendor.tags) { vendor.tags.forEach(tag => { tagsContainer.innerHTML += `<span class="vendor-tag ${tag.startsWith('new')?'new':(tag.startsWith('closed:')?'closed':'')}">${tag.replace('closed:','')}</span>`; }); } elements.vendorModal.querySelector('#modal-vendor-info').textContent = vendor.info || '無'; const menuContainer = elements.vendorModal.querySelector('#modal-vendor-menu'); if (vendor.menu?.length > 0) { menuContainer.className = 'modal-menu-grid'; menuContainer.innerHTML = ''; vendor.menu.forEach(item => { if (item.type === 'subtitle') { menuContainer.innerHTML += `<h4 class="modal-menu-subtitle">${item.text}</h4>`; } else { menuContainer.innerHTML += `<div class="modal-menu-item"><span class="modal-menu-name">${item.name}</span><span class="modal-menu-price">${(item.price === undefined || item.price === null) ? '' : `$${item.price}`}</span></div>`; } }); } else { menuContainer.className = 'modal-placeholder'; menuContainer.innerHTML = '菜單資訊準備中'; } openModal('vendor-modal'); }
-    function initDynamicBackground() { if(!elements.menuBackgroundContainer || elements.menuBackgroundContainer.childElementCount>0) return; const images=['https://images.unsplash.com/photo-1512152272829-e3139592d56f?q=80&w=2940&auto=format&fit=crop','https://images.unsplash.com/photo-1552611052-33e04de081de?q=80&w=2864&auto=format&fit=crop']; images.forEach(src=>{const d=document.createElement('div'); d.className='bg-image'; d.style.backgroundImage=`url(${src})`; elements.menuBackgroundContainer.appendChild(d);}); elements.menuBackgroundContainer.style.display='block'; let idx=0; const changeBg=()=>{if(document.getElementById('page-menu').classList.contains('page-active')){const imgs=elements.menuBackgroundContainer.querySelectorAll('.bg-image'); imgs.forEach(img=>img.classList.remove('active'));imgs[idx].classList.add('active');idx=(idx+1)%imgs.length;}};changeBg();setInterval(changeBg,7000); }
+    
+    function renderVendors(filter = '') {
+        if (!elements.vendorGrid) return;
+        elements.vendorGrid.innerHTML = '';
+        const lowerCaseFilter = filter.toLowerCase();
+        const filteredData = vendorData.filter(vendor => {
+            if (!vendor.tags) vendor.tags = [];
+            const nameMatch = (vendor.displayName || vendor.name).toLowerCase().includes(lowerCaseFilter);
+            const tagMatch = vendor.tags.some(tag => tag.toLowerCase().includes(lowerCaseFilter));
+            return nameMatch || tagMatch;
+        });
+        if (filteredData.length === 0) {
+            elements.vendorGrid.innerHTML = `<p style="grid-column: 1 / -1; text-align: center; color: var(--text-secondary-color);">找不到符合條件的店家...</p>`;
+            return;
+        }
+        filteredData.forEach(vendor => {
+            const card = document.createElement('div');
+            card.className = 'vendor-card';
+            card.dataset.vendorName = vendor.name;
+            let tagsHTML = (vendor.tags || []).map(tag => {
+                let className = 'vendor-tag';
+                let tagText = tag;
+                if (tag.startsWith('new')) { className += ' new'; tagText = '新店家'; }
+                else if (tag.startsWith('closed:')) { className += ' closed'; tagText = tag.replace('closed:', ''); }
+                return `<span class="${className}">${tagText}</span>`;
+            }).join('');
+            card.innerHTML = `<div class="vendor-info-content"><h3 class="vendor-name">${vendor.displayName || vendor.name}</h3><div class="vendor-tags">${tagsHTML}</div></div><div class="vendor-action-text">點擊查看菜單</div>`;
+            elements.vendorGrid.appendChild(card);
+        });
+    }
+
+    function populateAndShowModal(vendorName) {
+        const vendor = vendorData.find(v => v.name === vendorName);
+        if (!vendor || !elements.vendorModal) return;
+        elements.vendorModal.querySelector('#modal-vendor-name').textContent = vendor.displayName || vendor.name;
+        const phoneLink = elements.vendorModal.querySelector('#modal-vendor-phone');
+        if (vendor.phone && vendor.phone !== "無") {
+            phoneLink.href = `tel:${vendor.phone}`;
+            phoneLink.style.display = 'inline-flex';
+            elements.vendorModal.querySelector('#modal-vendor-phone-text').textContent = vendor.phone;
+        } else {
+            phoneLink.style.display = 'none';
+        }
+        elements.vendorModal.querySelector('#modal-vendor-map').href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(vendor.address || '高雄 ' + (vendor.displayName || vendor.name))}`;
+        const tagsContainer = elements.vendorModal.querySelector('#modal-vendor-tags');
+        tagsContainer.innerHTML = '';
+        if (vendor.tags) {
+            vendor.tags.forEach(tag => {
+                let className = 'vendor-tag';
+                let tagText = tag;
+                if (tag.startsWith('new')) { className += ' new'; tagText = '新店家'; }
+                else if (tag.startsWith('closed:')) { className += ' closed'; tagText = tag.replace('closed:', ''); }
+                tagsContainer.innerHTML += `<span class="${className}">${tagText}</span>`;
+            });
+        }
+        elements.vendorModal.querySelector('#modal-vendor-info').textContent = vendor.info || '無';
+        const menuContainer = elements.vendorModal.querySelector('#modal-vendor-menu');
+        if (vendor.menu && vendor.menu.length > 0) {
+            menuContainer.className = 'modal-menu-grid';
+            menuContainer.innerHTML = '';
+            vendor.menu.forEach(item => {
+                if (item.type === 'subtitle') {
+                    menuContainer.innerHTML += `<h4 class="modal-menu-subtitle">${item.text}</h4>`;
+                } else {
+                    const priceText = (item.price === undefined || item.price === null) ? '' : (typeof item.price === 'string' ? item.price : `$${item.price}`);
+                    menuContainer.innerHTML += `<div class="modal-menu-item"><span class="modal-menu-name">${item.name}</span><span class="modal-menu-price">${priceText}</span></div>`;
+                }
+            });
+        } else {
+            menuContainer.className = 'modal-placeholder';
+            menuContainer.innerHTML = '菜單資訊準備中...';
+        }
+        openModal('vendor-modal');
+    }
+
+    function initDynamicBackground() {
+        if (!elements.menuBackgroundContainer) return;
+        if (elements.menuBackgroundContainer.childElementCount > 0) {
+            if (elements.menuBackgroundContainer.style.display !== 'block') elements.menuBackgroundContainer.style.display = 'block';
+            return;
+        }
+        const images = ['https://images.unsplash.com/photo-1512152272829-e3139592d56f?q=80&w=2940&auto=format&fit=crop', 'https://images.unsplash.com/photo-1552611052-33e04de081de?q=80&w=2864&auto=format&fit=crop', 'https://images.unsplash.com/photo-1562967915-92ae0c320a01?q=80&w=2787&auto=format&fit=crop', 'https://images.unsplash.com/photo-1600891964092-4316c288032e?q=80&w=2940&auto=format&fit=crop'];
+        images.forEach(src => {
+            const div = document.createElement('div');
+            div.className = 'bg-image';
+            div.style.backgroundImage = `url(${src})`;
+            elements.menuBackgroundContainer.appendChild(div);
+        });
+        elements.menuBackgroundContainer.style.display = 'block';
+        let currentIndex = 0;
+        const changeBg = () => {
+            if (document.getElementById('page-menu').classList.contains('page-active')) {
+                const bgImages = elements.menuBackgroundContainer.querySelectorAll('.bg-image');
+                bgImages.forEach(img => img.classList.remove('active'));
+                bgImages[currentIndex].classList.add('active');
+                currentIndex = (currentIndex + 1) % bgImages.length;
+            }
+        };
+        changeBg();
+        setInterval(changeBg, 7000);
+    }
     
     function main() { Auth.init(); initNotifications(); bindEvents(); setupOfficialWebsiteJS(); updateUserInfoBar(); switchPage('page-home'); }
     main();
