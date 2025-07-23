@@ -366,7 +366,7 @@
     <!-- Re-using old JS for now. It will be replaced in the next step -->
 <script>
     // ===============================================
-    //      工作人員後台 (v6.2 - 最終完善版)
+    //      工作人員後台 (v6.3 - 完整功能修復版)
     // ===============================================
     document.addEventListener('DOMContentLoaded', () => {
         const API_BASE_URL = 'https://no-one-help-official-website-v3-1.onrender.com';
@@ -381,10 +381,11 @@
             currentUserDetail: null,
             currentConversation: null,
             selectedDate: null,
-            calendarDate: new Date()
+            calendarDate: new Date(),
+            chatFetchInterval: null, // v6.3: 為客服系統新增計時器
         };
 
-        // --- DOM 元素快取 ---
+        // --- DOM 元素快取 (大部分無變動) ---
         const elements = {
             authOverlay: document.getElementById('auth-overlay'),
             passwordInput: document.getElementById('password-input'),
@@ -402,21 +403,23 @@
             transDescriptionInput: document.getElementById('trans-description'),
             transAmountInput: document.getElementById('trans-amount'),
             transactionList: document.getElementById('transaction-list'),
+            // 客服系統
             conversationList: document.getElementById('conversation-list'),
             chatHeaderTitle: document.getElementById('chat-header-title'),
             chatWindow: document.getElementById('chat-window'),
             chatPlaceholder: document.getElementById('chat-placeholder'),
+            // 日曆系統
             calendarGrid: document.getElementById('calendar-grid'),
             currentMonthYear: document.getElementById('current-month-year'),
             prevMonthBtn: document.getElementById('prev-month-btn'),
             nextMonthBtn: document.getElementById('next-month-btn'),
             detailHeader: document.getElementById('detail-header'),
             detailContent: document.getElementById('detail-content'),
+            // 工具
             broadcastMessageInput: document.getElementById('broadcast-message-input'),
             sendBroadcastBtn: document.getElementById('send-broadcast-btn'),
         };
 
-        // ================== 初始化流程 ==================
         function init() {
             initAuth();
         }
@@ -430,25 +433,17 @@
             initToolsPanel();
         }
 
-        // ================== 1. 授權 ==================
         function initAuth() {
-            elements.passwordInput.addEventListener('keydown', (e) => {
+             elements.passwordInput.addEventListener('keydown', (e) => {
                 elements.authError.textContent = '';
-                if (e.key === 'Enter') {
-                    checkPassword();
-                }
+                if (e.key === 'Enter') { checkPassword(); }
             });
         }
         function checkPassword() {
-            if (elements.passwordInput.value === STAFF_PASSWORD) {
-                runMainApp();
-            } else {
-                elements.authError.textContent = '密碼錯誤';
-                elements.passwordInput.value = '';
-            }
+            if (elements.passwordInput.value === STAFF_PASSWORD) { runMainApp(); } 
+            else { elements.authError.textContent = '密碼錯誤'; elements.passwordInput.value = ''; }
         }
         
-        // ================== 2. 面板切換 ==================
         function initPanelSwitching() {
             const navMap = {
                 'nav-users': 'users-panel', 'nav-chat': 'chat-panel',
@@ -459,37 +454,32 @@
                     elements.navButtons.forEach(b => b.classList.remove('active'));
                     btn.classList.add('active');
                     const targetPanelId = navMap[btn.id];
-                    elements.panels.forEach(p => {
-                        p.classList.toggle('active', p.id === targetPanelId);
-                    });
+                    elements.panels.forEach(p => { p.classList.toggle('active', p.id === targetPanelId); });
+
+                    // v6.3: 控制客服系統的輪詢
+                    if (targetPanelId === 'chat-panel') { startChatFetching(); } 
+                    else { stopChatFetching(); }
                 });
             });
         }
         
-        // ================== 3. 使用者管理面板 ==================
         async function initUserPanel() {
-            await fetchAllUsers();
-            renderUserList();
+            await fetchAllUsers(); renderUserList();
             elements.resetPasswordBtn.addEventListener('click', handleResetPassword);
             elements.deleteUserBtn.addEventListener('click', handleDeleteUser);
             elements.transactionForm.addEventListener('submit', handleAddTransaction);
         }
 
         async function fetchAllUsers() {
-            try {
-                const response = await fetch(`${API_BASE_URL}/api/admin/users`);
-                state.users = await response.json();
-            } catch (error) {
-                console.error("無法獲取使用者列表:", error);
-            }
+            try { state.users = await (await fetch(`${API_BASE_URL}/api/admin/users`)).json(); } 
+            catch (error) { console.error("無法獲取使用者列表:", error); }
         }
         
         function renderUserList() {
             elements.userList.innerHTML = '';
             state.users.forEach(user => {
                 const li = document.createElement('li');
-                li.className = 'list-item';
-                li.dataset.userId = user._id;
+                li.className = 'list-item'; li.dataset.userId = user._id;
                 li.innerHTML = `<span>${user.username}</span><span style="float: right; color: var(--text-secondary-color)">$${user.balance}</span>`;
                 li.addEventListener('click', () => selectUser(user._id));
                 elements.userList.appendChild(li);
@@ -498,331 +488,277 @@
         
         async function selectUser(userId) {
             state.currentUser = state.users.find(u => u._id === userId);
-            document.querySelectorAll('#user-list .list-item').forEach(li => {
-                li.classList.toggle('active', li.dataset.userId === userId);
-            });
-            elements.userPlaceholder.style.display = 'block';
-            elements.userPlaceholder.textContent = "正在載入使用者資料...";
+            document.querySelectorAll('#user-list .list-item').forEach(li => { li.classList.toggle('active', li.dataset.userId === userId); });
+            elements.userPlaceholder.style.display = 'block'; elements.userPlaceholder.textContent = "正在載入使用者資料...";
             elements.userDetailContent.style.display = 'none';
             try {
-                const response = await fetch(`${API_BASE_URL}/api/admin/users/${userId}`);
-                const result = await response.json();
+                const result = await (await fetch(`${API_BASE_URL}/api/admin/users/${userId}`)).json();
                 if (!result.success) throw new Error(result.message);
                 state.currentUserDetail = result.user;
                 renderUserDetail();
-            } catch(error) {
-                console.error("無法獲取使用者詳細資料:", error);
-                elements.userPlaceholder.textContent = "獲取資料失敗，請重試。";
-            }
+            } catch(error) { console.error("無法獲取使用者詳細資料:", error); elements.userPlaceholder.textContent = "獲取資料失敗，請重試。"; }
         }
         
-        function renderUserDetail() {
+        function renderUserDetail() { /* ... 此函數無變動 ... */
             if (!state.currentUserDetail) return;
-            elements.userPlaceholder.style.display = 'none';
-            elements.userDetailContent.style.display = 'block';
+            elements.userPlaceholder.style.display = 'none'; elements.userDetailContent.style.display = 'block';
             elements.userDetailUsername.textContent = state.currentUserDetail.username;
             elements.userDetailBalance.textContent = `$${state.currentUserDetail.balance}`;
             if(state.currentUserDetail.transactions && state.currentUserDetail.transactions.length > 0) {
-                 let transactionHtml = '';
+                 let tHtml = '';
                  state.currentUserDetail.transactions.slice().reverse().forEach(t => {
                      const amountClass = t.amount >= 0 ? 'amount-positive' : 'amount-negative';
                      const amountSign = t.amount >= 0 ? '+' : '';
-                     transactionHtml += `<li class="list-item">
-                        <div>
-                           <span>${t.description}</span>
-                           <span style="float: right; font-weight: bold;" class="${amountClass}">${amountSign}${t.amount}</span>
-                        </div>
-                        <div style="font-size: 0.8rem; color: var(--text-secondary-color);">
-                           <span>${new Date(t.date).toLocaleString()}</span>
-                           <span style="float: right;">餘額: $${t.resultingBalance}</span>
-                        </div>
-                     </li>`
+                     tHtml += `<li class="list-item"><div><span>${t.description}</span><span style="float: right; font-weight: bold;" class="${amountClass}">${amountSign}${t.amount}</span></div><div style="font-size: 0.8rem; color: var(--text-secondary-color);"><span>${new Date(t.date).toLocaleString()}</span><span style="float: right;">餘額: $${t.resultingBalance}</span></div></li>`
                  });
-                 elements.transactionList.innerHTML = transactionHtml;
-            } else {
-                 elements.transactionList.innerHTML = `<li class="list-item" style="text-align:center;">無交易紀錄</li>`;
-            }
+                 elements.transactionList.innerHTML = tHtml;
+            } else { elements.transactionList.innerHTML = `<li class="list-item" style="text-align:center;">無交易紀錄</li>`; }
         }
 
-        async function handleResetPassword() {
-            if (!state.currentUser) return;
+        async function handleResetPassword() { /* ... 此函數無變動 ... */
+             if (!state.currentUser) return;
             if (!confirm(`確定要將使用者 ${state.currentUser.username} 的密碼重設為 "12345678" 嗎？`)) return;
             try {
-                const response = await fetch(`${API_BASE_URL}/api/admin/users/${state.currentUser._id}/reset-password`, { method: 'POST' });
-                const result = await response.json();
-                if (!result.success) throw new Error(result.message);
-                alert(result.message);
-            } catch(error) {
-                alert(`重設密碼失敗: ${error.message}`);
-            }
+                const result = await (await fetch(`${API_BASE_URL}/api/admin/users/${state.currentUser._id}/reset-password`, { method: 'POST' })).json();
+                if (!result.success) throw new Error(result.message); alert(result.message);
+            } catch(error) { alert(`重設密碼失敗: ${error.message}`); }
         }
 
-        async function handleDeleteUser() {
+        async function handleDeleteUser() { /* ... 此函數無變動 ... */
             if (!state.currentUser) return;
             if (!confirm(`【警告】確定要永久刪除使用者 ${state.currentUser.username} 嗎？此操作無法復原！`)) return;
             try {
-                const response = await fetch(`${API_BASE_URL}/api/admin/users/${state.currentUser._id}`, { method: 'DELETE' });
-                const result = await response.json();
+                const result = await (await fetch(`${API_BASE_URL}/api/admin/users/${state.currentUser._id}`, { method: 'DELETE' })).json();
                 if (!result.success) throw new Error(result.message);
-                alert(result.message);
-                await fetchAllUsers();
-                renderUserList();
-                elements.userPlaceholder.style.display = 'block';
-                elements.userPlaceholder.textContent = "請從左側選擇一位使用者以查看詳情。";
-                elements.userDetailContent.style.display = 'none';
-                state.currentUser = null;
-                state.currentUserDetail = null;
-            } catch(error) {
-                alert(`刪除用戶失敗: ${error.message}`);
-            }
+                alert(result.message); await fetchAllUsers(); renderUserList();
+                elements.userPlaceholder.style.display = 'block'; elements.userPlaceholder.textContent = "請從左側選擇一位使用者以查看詳情。";
+                elements.userDetailContent.style.display = 'none'; state.currentUser = null; state.currentUserDetail = null;
+            } catch(error) { alert(`刪除用戶失敗: ${error.message}`); }
         }
         
-        async function handleAddTransaction(e) {
-            e.preventDefault();
-            if (!state.currentUser) return;
+        async function handleAddTransaction(e) { /* ... 此函數無變動 ... */
+            e.preventDefault(); if (!state.currentUser) return;
             const description = elements.transDescriptionInput.value.trim();
             const amount = parseFloat(elements.transAmountInput.value);
-            if (!description || isNaN(amount)) {
-                alert("請填寫有效的事由和金額");
-                return;
-            }
+            if (!description || isNaN(amount)) { alert("請填寫有效的事由和金額"); return; }
             try {
-                const response = await fetch(`${API_BASE_URL}/api/admin/transaction`, {
-                     method: 'POST',
-                     headers: { 'Content-Type': 'application/json' },
-                     body: JSON.stringify({ userId: state.currentUser._id, description, amount })
-                });
-                const result = await response.json();
+                const result = await (await fetch(`${API_BASE_URL}/api/admin/transaction`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: state.currentUser._id, description, amount })})).json();
                 if (!result.success) throw new Error(result.message);
-                alert(result.message);
-                state.currentUser.balance = result.newBalance;
+                alert(result.message); state.currentUser.balance = result.newBalance;
                 if(state.currentUserDetail) state.currentUserDetail.balance = result.newBalance;
-                await selectUser(state.currentUser._id);
-                await fetchAllUsers();
-                renderUserList(); 
+                await selectUser(state.currentUser._id); await fetchAllUsers(); renderUserList(); 
                 document.querySelector(`#user-list .list-item[data-user-id="${state.currentUser._id}"]`).classList.add('active');
                 elements.transactionForm.reset();
-            } catch (error) {
-                alert(`記帳失敗: ${error.message}`);
-            }
+            } catch (error) { alert(`記帳失敗: ${error.message}`); }
         }
 
-        // ================== 4. 客服系統面板 ==================
+        // ================== 4. 客服系統面板 (v6.3 邏輯修復) ==================
         function initChatPanel() {
-            console.log("客服系統面板已初始化 (骨架)");
+            // 邏輯入口改為點擊面板時觸發
         }
 
-        // ================== 5. 日曆管理面板 ==================
+        function startChatFetching() {
+            stopChatFetching(); // 先停止舊的，確保不會重複
+            fetchAllConversations(); // 立即獲取一次
+            state.chatFetchInterval = setInterval(fetchAllConversations, 5000); // 設置新的輪詢
+        }
+
+        function stopChatFetching() {
+            clearInterval(state.chatFetchInterval);
+        }
+
+        async function fetchAllConversations() {
+            try {
+                const latestData = await (await fetch(`${API_BASE_URL}/api/admin/conversations`)).json();
+                if (JSON.stringify(latestData) !== JSON.stringify(state.conversations)) {
+                    state.conversations = latestData;
+                    renderConversationList();
+                    if (state.currentConversation) {
+                        // 如果正在查看某個對話，刷新它
+                        const updatedConvo = state.conversations.find(c => c._id === state.currentConversation._id);
+                        if (updatedConvo) {
+                            state.currentConversation = updatedConvo;
+                            renderChatWindow();
+                        } else {
+                            // 如果該對話已被刪除
+                            state.currentConversation = null;
+                            selectConversation(null);
+                        }
+                    }
+                }
+            } catch (error) { console.error('獲取所有對話失敗:', error); elements.conversationList.innerHTML = `<li class="list-item" style="color: red;">無法連接伺服器</li>`; stopChatFetching(); }
+        }
+
+        function renderConversationList() {
+            const currentActiveId = state.currentConversation?._id;
+            elements.conversationList.innerHTML = '';
+            if (state.conversations.length === 0) {
+                elements.conversationList.innerHTML = '<li class="list-item">尚無任何對話</li>';
+                return;
+            }
+            state.conversations.forEach(convo => {
+                const li = document.createElement('li');
+                li.className = 'list-item'; li.dataset.convoId = convo._id;
+                li.textContent = convo.username;
+                if (convo._id === currentActiveId) { li.classList.add('active'); }
+                li.addEventListener('click', () => selectConversation(convo));
+                elements.conversationList.appendChild(li);
+            });
+        }
+
+        function selectConversation(convo) {
+            state.currentConversation = convo;
+            renderConversationList(); // 更新選擇樣式
+            renderChatWindow();
+        }
+
+        function renderChatWindow() {
+            if (!state.currentConversation) {
+                elements.chatHeaderTitle.textContent = '選擇一個對話';
+                elements.chatWindow.innerHTML = '<p id="chat-placeholder" class="placeholder-text">請從左側選擇一位顧客以查看對話紀錄。</p>';
+                return;
+            }
+            elements.chatHeaderTitle.textContent = `與 ${state.currentConversation.username} 的對話`;
+            elements.chatWindow.innerHTML = '';
+
+            if (state.currentConversation.messages.length === 0) {
+                elements.chatWindow.innerHTML = '<p class="placeholder-text">此用戶尚未發送任何訊息。</p>';
+                return;
+            }
+                
+            state.currentConversation.messages.forEach(msg => {
+                const groupDiv = document.createElement('div');
+                groupDiv.className = 'message-group';
+                let answerHTML = '';
+                    
+                if (msg.staffReply) {
+                    answerHTML = `<p><b>您的回覆:</b> ${msg.staffReply}</p>`;
+                } else if (!msg.isStaffMessage) { // 只有顧客的訊息需要回覆
+                    answerHTML = `<p><b>您的回覆:</b> <i>尚未回覆</i></p>
+                                <div class="reply-area">
+                                    <input type="text" class="reply-input" id="reply-input-${msg._id}" placeholder="請在此輸入回覆...">
+                                    <button class="action-button primary-btn" data-message-id="${msg._id}">送出</button>
+                                </div>`;
+                }
+                const msgBody = msg.isStaffMessage ? `<div class="staff-message"><p><b>您 (主動發送):</b> ${msg.customerMessage}</p></div>` 
+                                                : `<div class="customer-question"><p><b>顧客:</b> ${msg.customerMessage}</p></div><div class="staff-answer">${answerHTML}</div>`;
+
+                groupDiv.innerHTML = msgBody;
+                elements.chatWindow.appendChild(groupDiv);
+            });
+            
+            elements.chatWindow.onclick = function(event) {
+                if (event.target.classList.contains('primary-btn') && event.target.dataset.messageId) {
+                    const messageId = event.target.dataset.messageId;
+                    sendReply(messageId);
+                }
+            }
+            elements.chatWindow.scrollTop = elements.chatWindow.scrollHeight;
+        }
+
+        async function sendReply(messageId) {
+            const inputEl = document.getElementById(`reply-input-${messageId}`);
+            const replyText = inputEl.value.trim();
+            if (!replyText || !state.currentConversation) return alert('回覆內容不能為空！');
+            
+            stopChatFetching(); // 暫停輪詢避免衝突
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/admin/reply`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: state.currentConversation.userId, messageId, replyText }) });
+                const data = await response.json(); 
+                if (!data.success) { throw new Error(data.message); }
+                await fetchAllConversations();
+            } catch (error) { alert(`回覆失敗：${error.message}`); } 
+            finally { startChatFetching(); }
+        }
+
+        // ================== 5. 日曆管理面板 (邏輯無變動) ==================
         function initCalendarPanel() {
-            elements.prevMonthBtn.addEventListener('click', () => {
-                state.calendarDate.setMonth(state.calendarDate.getMonth() - 1);
-                renderCalendar();
-            });
-            elements.nextMonthBtn.addEventListener('click', () => {
-                state.calendarDate.setMonth(state.calendarDate.getMonth() + 1);
-                renderCalendar();
-            });
+            elements.prevMonthBtn.addEventListener('click', () => { state.calendarDate.setMonth(state.calendarDate.getMonth() - 1); renderCalendar(); });
+            elements.nextMonthBtn.addEventListener('click', () => { state.calendarDate.setMonth(state.calendarDate.getMonth() + 1); renderCalendar(); });
             fetchEventsAndRenderCalendar();
         }
-
         async function fetchEventsAndRenderCalendar() {
             try {
-                const response = await fetch(`${API_BASE_URL}/api/calendar/events`);
-                if (!response.ok) throw new Error('無法獲取日曆事件');
-                state.calendarEvents = await response.json();
+                state.calendarEvents = await(await fetch(`${API_BASE_URL}/api/calendar/events`)).json();
                 renderCalendar();
-                if(state.selectedDate) {
-                    handleDayClick(state.selectedDate);
-                } else {
-                    elements.detailHeader.textContent = `請選擇一個日期`;
-                    elements.detailContent.innerHTML = '';
-                }
-            } catch (error) {
-                console.error("獲取日曆事件失敗:", error);
-                elements.detailContent.innerHTML = `<p style="color: var(--error-color);">無法載入日曆資料。</p>`
-            }
+                if(state.selectedDate) { handleDayClick(state.selectedDate); } 
+                else { elements.detailHeader.textContent = `請選擇一個日期`; elements.detailContent.innerHTML = ''; }
+            } catch (error) { console.error("獲取日曆事件失敗:", error); elements.detailContent.innerHTML = `<p style="color: var(--error-color);">無法載入日曆資料。</p>`; }
         }
-
-        function renderCalendar() {
+        function renderCalendar() { /* ... 此函數無變動 ... */
             elements.calendarGrid.innerHTML = '';
-            const year = state.calendarDate.getFullYear();
-            const month = state.calendarDate.getMonth();
+            const year = state.calendarDate.getFullYear(); const month = state.calendarDate.getMonth();
             elements.currentMonthYear.textContent = `${year}年 ${month + 1}月`;
-            const firstDayOfMonth = new Date(year, month, 1).getDay();
-            const daysInMonth = new Date(year, month + 1, 0).getDate();
-            for (let i = 0; i < firstDayOfMonth; i++) {
-                elements.calendarGrid.innerHTML += `<div class="calendar-day not-current-month"></div>`;
-            }
+            const firstDayOfMonth = new Date(year, month, 1).getDay(); const daysInMonth = new Date(year, month + 1, 0).getDate();
+            for (let i = 0; i < firstDayOfMonth; i++) { elements.calendarGrid.innerHTML += `<div class="calendar-day not-current-month"></div>`; }
             for (let i = 1; i <= daysInMonth; i++) {
                 const dayEl = document.createElement('div');
                 const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
-                dayEl.className = 'calendar-day';
-                dayEl.dataset.date = dateStr;
+                dayEl.className = 'calendar-day'; dayEl.dataset.date = dateStr;
                 dayEl.innerHTML = `<span class="day-number">${i}</span>`;
-                if (state.calendarEvents[dateStr] && state.calendarEvents[dateStr].length > 0) {
-                     dayEl.innerHTML += `<div class="event-indicator-container"> <div class="event-indicator"></div> </div>`;
-                }
-                if (dateStr === state.selectedDate) {
-                    dayEl.classList.add('selected');
-                }
-                dayEl.addEventListener('click', () => handleDayClick(dateStr));
-                elements.calendarGrid.appendChild(dayEl);
+                if (state.calendarEvents[dateStr] && state.calendarEvents[dateStr].length > 0) { dayEl.innerHTML += `<div class="event-indicator-container"> <div class="event-indicator"></div> </div>`; }
+                if (dateStr === state.selectedDate) { dayEl.classList.add('selected'); }
+                dayEl.addEventListener('click', () => handleDayClick(dateStr)); elements.calendarGrid.appendChild(dayEl);
             }
         }
-
-        function handleDayClick(dateStr) {
-            state.selectedDate = dateStr;
-            renderCalendar(); 
-            elements.detailHeader.textContent = `編輯 ${dateStr} 的活動`;
-            renderEventDetailPanel();
-        }
-        
-        function renderEventDetailPanel() {
-            const eventsForDay = state.calendarEvents[state.selectedDate] || [];
-            let html = '<div id="event-list-container">';
+        function handleDayClick(dateStr) { state.selectedDate = dateStr; renderCalendar(); elements.detailHeader.textContent = `編輯 ${dateStr} 的活動`; renderEventDetailPanel(); }
+        function renderEventDetailPanel() { /* ... 此函數無變動 ... */
+            const eventsForDay = state.calendarEvents[state.selectedDate] || []; let html = '<div id="event-list-container">';
             if (eventsForDay.length > 0) {
-                eventsForDay.forEach(event => {
-                    html += `
-                        <div class="event-card" data-event-id="${event._id}">
-                            <div class="event-card-header">
-                                <h4>${event.vendorName}</h4>
-                                <div>
-                                    <button class="action-button secondary-btn edit-event-btn">編輯</button>
-                                    <button class="action-button danger-btn delete-event-btn">刪除</button>
-                                </div>
-                            </div>
-                            <div class="event-card-body">
-                                <p>截止時間: ${new Date(event.deadline).toLocaleString()}</p>
-                                <p>訂單數: ${event.orders.length}</p>
-                            </div>
-                        </div>
-                    `;
-                });
-            } else {
-                html += '<p>本日無活動。</p>';
-            }
+                eventsForDay.forEach(event => { html += `<div class="event-card" data-event-id="${event._id}"><div class="event-card-header"><h4>${event.vendorName}</h4><div><button class="action-button secondary-btn edit-event-btn">編輯</button><button class="action-button danger-btn delete-event-btn">刪除</button></div></div><div class="event-card-body"><p>截止時間: ${new Date(event.deadline).toLocaleString()}</p><p>訂單數: ${event.orders.length}</p></div></div>`; });
+            } else { html += '<p>本日無活動。</p>'; }
             html += '</div> <hr style="margin: 2rem 0; border-color: var(--border-color)"> <button id="add-new-event-btn" class="action-button primary-btn">新增本日活動</button>';
             elements.detailContent.innerHTML = html;
-            
             document.getElementById('add-new-event-btn').addEventListener('click', () => renderEventForm(null));
             document.querySelectorAll('.edit-event-btn').forEach(btn => {
-                const eventId = btn.closest('.event-card').dataset.eventId;
-                const eventData = findEventById(eventId);
+                const eventId = btn.closest('.event-card').dataset.eventId; const eventData = findEventById(eventId);
                 btn.addEventListener('click', () => renderEventForm(eventData));
             });
-             document.querySelectorAll('.delete-event-btn').forEach(btn => {
+            document.querySelectorAll('.delete-event-btn').forEach(btn => {
                 const eventId = btn.closest('.event-card').dataset.eventId;
                 btn.addEventListener('click', () => deleteEvent(eventId));
             });
         }
-        
-        function findEventById(eventId){
-            for (const date in state.calendarEvents) {
-                const event = state.calendarEvents[date].find(e => e._id === eventId);
-                if (event) return event;
-            }
-            return null;
-        }
-
-        async function deleteEvent(eventId) {
+        function findEventById(eventId){ for (const date in state.calendarEvents) { const event = state.calendarEvents[date].find(e => e._id === eventId); if (event) return event; } return null; }
+        async function deleteEvent(eventId) { /* ... 此函數無變動 ... */
             if (!confirm("確定要刪除這個活動嗎？")) return;
             try {
-                const response = await fetch(`${API_BASE_URL}/api/admin/calendar/event/${eventId}`, { method: 'DELETE' });
-                const result = await response.json();
+                const result = await (await fetch(`${API_BASE_URL}/api/admin/calendar/event/${eventId}`, { method: 'DELETE' })).json();
                 if (!result.success) throw new Error(result.message);
-                alert("活動已刪除");
-                fetchEventsAndRenderCalendar();
-            } catch(error) {
-                alert(`刪除失敗: ${error.message}`);
-            }
+                alert("活動已刪除"); fetchEventsAndRenderCalendar();
+            } catch(error) { alert(`刪除失敗: ${error.message}`); }
         }
-        
-        // 【v6.2 完善版】: 直接傳入 event 物件
-        function renderEventForm(event) { 
-            const isEditing = event !== null;
-            const deadline = isEditing ? new Date(event.deadline).toISOString().substring(0, 16) : '';
-            const formHtml = `
-                <h3>${isEditing ? '編輯活動' : '新增活動'}</h3>
-                <form id="event-form">
-                    <div class="form-group">
-                        <label for="vendorName">店家名稱</label>
-                        <input type="text" id="vendorName" name="vendorName" value="${event?.vendorName || ''}" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="deadline">點餐截止時間</label>
-                        <input type="datetime-local" id="deadline" name="deadline" value="${deadline}" required>
-                    </div>
-                     <div class="form-group">
-                        <label for="menuText">文字菜單 (選填)</label>
-                        <textarea id="menuText" name="menuText">${event?.menuText || ''}</textarea>
-                    </div>
-                    <div class="form-group">
-                        <label for="menuImage">上傳菜單圖片 (選填)</label>
-                        <input type="file" id="menuImage" name="menuImage" accept="image/*">
-                        ${isEditing && event.menuImageURL ? `<p style="font-size:0.9rem; color:var(--text-secondary-color);">目前圖片: <a href="${event.menuImageURL}" target="_blank" style="color:var(--info-color);">點此查看</a> (上傳新圖片將會覆蓋)</p>` : ''}
-                    </div>
-                    <div style="display: flex; gap: 1rem;">
-                        <button type="submit" class="action-button primary-btn">${isEditing ? '更新活動' : '建立活動'}</button>
-                        <button type="button" id="cancel-edit-btn" class="action-button secondary-btn">取消</button>
-                    </div>
-                </form>
-            `;
+        function renderEventForm(event) { /* ... 此函數無變動 ... */
+             const isEditing = event !== null; const deadline = isEditing ? new Date(event.deadline).toISOString().substring(0, 16) : '';
+            const formHtml = `<h3>${isEditing ? '編輯活動' : '新增活動'}</h3><form id="event-form"><div class="form-group"><label for="vendorName">店家名稱</label><input type="text" id="vendorName" name="vendorName" value="${event?.vendorName || ''}" required></div><div class="form-group"><label for="deadline">點餐截止時間</label><input type="datetime-local" id="deadline" name="deadline" value="${deadline}" required></div><div class="form-group"><label for="menuText">文字菜單 (選填)</label><textarea id="menuText" name="menuText">${event?.menuText || ''}</textarea></div><div class="form-group"><label for="menuImage">上傳菜單圖片 (選填)</label><input type="file" id="menuImage" name="menuImage" accept="image/*">${isEditing && event.menuImageURL ? `<p style="font-size:0.9rem; color:var(--text-secondary-color);">目前圖片: <a href="${event.menuImageURL}" target="_blank" style="color:var(--info-color);">點此查看</a> (上傳新圖片將會覆蓋)</p>` : ''}</div><div style="display: flex; gap: 1rem;"><button type="submit" class="action-button primary-btn">${isEditing ? '更新活動' : '建立活動'}</button><button type="button" id="cancel-edit-btn" class="action-button secondary-btn">取消</button></div></form>`;
             elements.detailContent.innerHTML = formHtml;
             document.getElementById('cancel-edit-btn').addEventListener('click', renderEventDetailPanel);
-            // 【v6.2 完善版】: 將 event 物件傳入 submit 處理函數
             document.getElementById('event-form').addEventListener('submit', (e) => handleEventFormSubmit(e, event));
         }
-
-        // 【v6.2 完善版】: 直接接收 event 物件進行判斷
-        async function handleEventFormSubmit(e, event) {
-            e.preventDefault();
-            const form = e.target;
-            const formData = new FormData(form);
+        async function handleEventFormSubmit(e, event) { /* ... 此函數無變動 ... */
+            e.preventDefault(); const form = e.target; const formData = new FormData(form);
             formData.append('date', state.selectedDate);
-            
-            const isEditing = event !== null;
-            const url = isEditing ? `${API_BASE_URL}/api/admin/calendar/event/${event._id}` : `${API_BASE_URL}/api/admin/calendar/event`;
+            const isEditing = event !== null; const url = isEditing ? `${API_BASE_URL}/api/admin/calendar/event/${event._id}` : `${API_BASE_URL}/api/admin/calendar/event`;
             const method = isEditing ? 'PUT' : 'POST';
-            
             try {
-                const response = await fetch(url, { method, body: formData });
-                const result = await response.json();
+                const result = await (await fetch(url, { method, body: formData })).json();
                 if (!result.success) throw new Error(result.message);
-                
-                alert(`活動已成功${isEditing ? '更新' : '建立'}！`);
-                fetchEventsAndRenderCalendar();
-            } catch(error) {
-                 alert(`錯誤: ${error.message}`);
-            }
+                alert(`活動已成功${isEditing ? '更新' : '建立'}！`); fetchEventsAndRenderCalendar();
+            } catch(error) { alert(`錯誤: ${error.message}`); }
         }
         
-        // ================== 6. 站務工具面板 ==================
+        // ================== 6. 站務工具面板 (邏輯無變動) ==================
         function initToolsPanel() {
             elements.sendBroadcastBtn.addEventListener('click', handleBroadcast);
         }
-
         async function handleBroadcast() {
             const message = elements.broadcastMessageInput.value.trim();
-            if (!message) {
-                alert("請輸入公告內容！");
-                return;
-            }
-            if(!confirm("確定要將這則訊息發送給所有使用者嗎？")){
-                return;
-            }
+            if (!message || !confirm("確定要將這則訊息發送給所有使用者嗎？")) return;
             try {
-                const response = await fetch(`${API_BASE_URL}/api/admin/message/broadcast`, {
-                     method: 'POST',
-                     headers: { 'Content-Type': 'application/json' },
-                     body: JSON.stringify({ message })
-                });
-                const result = await response.json();
+                const result = await(await fetch(`${API_BASE_URL}/api/admin/message/broadcast`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message }) })).json();
                 if (!result.success) throw new Error(result.message);
-                alert("全站公告已成功發送！");
-                elements.broadcastMessageInput.value = '';
-            } catch(error) {
-                alert(`群發失敗: ${error.message}`);
-            }
+                alert("全站公告已成功發送！"); elements.broadcastMessageInput.value = '';
+            } catch(error) { alert(`群發失敗: ${error.message}`); }
         }
         
         // --- App Entry Point ---
