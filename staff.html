@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>工作人員後台 (v6.0 - 架構重構版)</title>
+    <title>工作人員後台 (v6.4 - 錯誤修正與功能還原版)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
@@ -15,167 +15,47 @@
             --error-color: #ff5252; --success-color: #a5d6a7; --info-color: #64b5f6;
             --shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
-
-        /* --- Global & Base --- */
         * { box-sizing: border-box; }
-        html, body {
-            height: 100%;
-            margin: 0;
-            overflow: hidden;
-            font-family: var(--font-main);
-            background-color: var(--bg-color);
-            color: var(--text-color);
-        }
-
-        /* --- Auth Overlay --- */
-        #auth-overlay {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background-color: rgba(0, 0, 0, 0.95);
-            backdrop-filter: blur(10px);
-            z-index: 1000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-direction: column;
-            transition: opacity 0.5s ease;
-        }
-        #auth-overlay.hidden {
-            opacity: 0;
-            pointer-events: none;
-        }
-        #auth-box {
-            text-align: center;
-        }
-        #auth-box h1 {
-            color: var(--primary-color);
-            margin-bottom: 1rem;
-        }
-        #password-input {
-            padding: 0.8rem;
-            width: 250px;
-            font-size: 1.2rem;
-            text-align: center;
-            background-color: var(--surface-color);
-            border: 1px solid var(--border-color);
-            color: var(--text-color);
-            border-radius: 8px;
-        }
-        #password-input:focus {
-            outline: none;
-            border-color: var(--primary-color);
-        }
-        #auth-error {
-            color: var(--error-color);
-            margin-top: 1rem;
-            height: 1em;
-        }
-        
-        /* --- Main Layout --- */
-        .admin-container {
-            max-width: 1600px;
-            margin: auto;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-            padding: 1.5rem;
-        }
-        .main-content {
-            flex-grow: 1;
-            background-color: var(--surface-color);
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow);
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-        .main-nav {
-            padding: 1rem 1.5rem;
-            border-bottom: 1px solid var(--border-color);
-            display: flex;
-            flex-wrap: wrap;
-            gap: 1rem;
-        }
-        .nav-btn {
-            background: none; border: 1px solid var(--border-color);
-            color: var(--text-secondary-color); padding: 0.5rem 1rem;
-            border-radius: 8px; cursor: pointer; font-size: 1rem; transition: all 0.3s ease;
-        }
+        html, body { height: 100%; margin: 0; overflow: hidden; font-family: var(--font-main); background-color: var(--bg-color); color: var(--text-color); }
+        #auth-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.95); backdrop-filter: blur(10px); z-index: 1000; display: flex; align-items: center; justify-content: center; flex-direction: column; transition: opacity 0.5s ease; }
+        #auth-overlay.hidden { opacity: 0; pointer-events: none; }
+        #auth-box { text-align: center; }
+        #auth-box h1 { color: var(--primary-color); margin-bottom: 1rem; }
+        #password-input { padding: 0.8rem; width: 250px; font-size: 1.2rem; text-align: center; background-color: var(--surface-color); border: 1px solid var(--border-color); color: var(--text-color); border-radius: 8px; }
+        #password-input:focus { outline: none; border-color: var(--primary-color); }
+        #auth-error { color: var(--error-color); margin-top: 1rem; height: 1em; }
+        .admin-container { max-width: 1600px; margin: auto; height: 100%; display: flex; flex-direction: column; padding: 1.5rem; }
+        .main-content { flex-grow: 1; background-color: var(--surface-color); border-radius: var(--border-radius); box-shadow: var(--shadow); display: flex; flex-direction: column; overflow: hidden; }
+        .main-nav { padding: 1rem 1.5rem; border-bottom: 1px solid var(--border-color); display: flex; flex-wrap: wrap; gap: 1rem; }
+        .nav-btn { background: none; border: 1px solid var(--border-color); color: var(--text-secondary-color); padding: 0.5rem 1rem; border-radius: 8px; cursor: pointer; font-size: 1rem; transition: all 0.3s ease; }
         .nav-btn:hover { color: var(--primary-color); border-color: var(--primary-color); }
         .nav-btn.active { background-color: var(--primary-color); color: #111; border-color: var(--primary-color); font-weight: bold; }
-
         .panel { flex-grow: 1; display: none; overflow: hidden; }
-        .panel.active { display: flex; } /* Changed to flex */
-        .panel-content {
-            display: flex;
-            height: 100%;
-            width: 100%;
-            gap: 1.5rem;
-            padding: 1.5rem;
-            box-sizing: border-box;
-        }
-
-        /* --- Reusable Components --- */
-        .sidebar { /* For lists */
-            width: 320px;
-            flex-shrink: 0;
-            background-color: rgba(0,0,0,0.15);
-            border-radius: var(--border-radius);
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-        .main-view { /* For details */
-            flex-grow: 1;
-            background-color: rgba(0,0,0,0.15);
-            border-radius: var(--border-radius);
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-        .component-header {
-            padding: 1.2rem 1.5rem;
-            border-bottom: 1px solid var(--border-color);
-            flex-shrink: 0;
-        }
+        .panel.active { display: flex; }
+        .panel-content { display: flex; height: 100%; width: 100%; gap: 1.5rem; padding: 1.5rem; box-sizing: border-box; }
+        .sidebar { width: 320px; flex-shrink: 0; background-color: rgba(0,0,0,0.15); border-radius: var(--border-radius); display: flex; flex-direction: column; overflow: hidden; }
+        .main-view { flex-grow: 1; background-color: rgba(0,0,0,0.15); border-radius: var(--border-radius); display: flex; flex-direction: column; overflow: hidden; }
+        .component-header { padding: 1.2rem 1.5rem; border-bottom: 1px solid var(--border-color); flex-shrink: 0; }
         .component-header h2 { margin: 0; font-size: 1.2rem; }
         .component-list { list-style: none; padding: 0; margin: 0; overflow-y: auto; flex-grow: 1; }
-        .list-item {
-            padding: 1rem 1.5rem; cursor: pointer;
-            border-bottom: 1px solid var(--border-color);
-            transition: background-color 0.3s ease;
-            word-break: break-all;
-        }
+        .list-item { padding: 1rem 1.5rem; cursor: pointer; border-bottom: 1px solid var(--border-color); transition: background-color 0.3s ease; word-break: break-all; }
         .list-item:hover { background-color: rgba(255,255,255, 0.05); }
         .list-item.active { background-color: rgba(240, 196, 25, 0.1); color: var(--primary-color); font-weight: bold; }
         .list-item:last-child { border-bottom: none; }
         .placeholder-text { margin: auto; color: var(--text-secondary-color); text-align: center; }
-        
         .form-group { margin-bottom: 1.2rem; }
         .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 500; color: var(--text-secondary-color); }
-        .form-group input, .form-group textarea, .form-group select {
-            width: 100%; padding: 0.8rem; background-color: #333;
-            border: 1px solid #555; color: var(--text-color); border-radius: 5px; font-size: 1rem; box-sizing: border-box;
-        }
+        .form-group input, .form-group textarea, .form-group select { width: 100%; padding: 0.8rem; background-color: #333; border: 1px solid #555; color: var(--text-color); border-radius: 5px; font-size: 1rem; box-sizing: border-box; }
         textarea { resize: vertical; min-height: 100px; }
-        
-        .action-button {
-            padding: 0.6rem 1.2rem; border-radius: 8px; font-size: 0.9rem; font-weight: bold;
-            cursor: pointer; transition: all 0.3s; border: none;
-        }
+        .action-button { padding: 0.6rem 1.2rem; border-radius: 8px; font-size: 0.9rem; font-weight: bold; cursor: pointer; transition: all 0.3s; border: none; }
         .primary-btn { background-color: var(--primary-color); color: #111; }
         .primary-btn:hover { opacity: 0.8; }
         .danger-btn { background-color: var(--error-color); color: #fff; }
         .danger-btn:hover { opacity: 0.8; }
         .secondary-btn { background-color: transparent; border: 1px solid var(--text-secondary-color); color: var(--text-secondary-color); }
         .secondary-btn:hover { color: var(--text-color); border-color: var(--text-color); }
-
-        /* == User Management Panel == */
         .user-detail-view { padding: 1.5rem; overflow-y: auto; }
-        .user-info-card {
-            background-color: #2a2a2a; padding: 1.5rem;
-            border-radius: var(--border-radius); margin-bottom: 2rem;
-        }
+        .user-info-card { background-color: #2a2a2a; padding: 1.5rem; border-radius: var(--border-radius); margin-bottom: 2rem; }
         .user-info-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;}
         .user-info-header .username { font-size: 1.8rem; color: var(--primary-color); font-weight: 700; }
         .balance-display { text-align: right; }
@@ -184,26 +64,14 @@
         .user-actions { display: flex; flex-wrap: wrap; gap: 0.8rem; margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-color); }
         .transaction-form { display: flex; gap: 1rem; align-items: flex-end; }
         .transaction-form .form-group { flex-grow: 1; margin: 0; }
-        
-        /* == Customer Service Panel == */
-        .chat-view {
-            padding: 1.5rem; flex-grow: 1; background-color: rgba(0,0,0,0.15);
-            border-radius: var(--border-radius); display: flex; flex-direction: column;
-        }
+        .chat-view { padding: 1.5rem; flex-grow: 1; background-color: rgba(0,0,0,0.15); border-radius: var(--border-radius); display: flex; flex-direction: column; }
         #chat-window { flex-grow: 1; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: 1rem; }
         .message-group { border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; background-color: rgba(0,0,0,0.1); }
-        .message-header { color: var(--text-secondary-color); font-size: 0.8rem; margin-bottom: 0.5rem; }
         .customer-question, .staff-message { margin: 0; word-break: break-word; font-size: 1rem; }
         .staff-answer { color: var(--success-color); }
         .staff-answer i { color: var(--text-secondary-color); font-style: normal; }
         .reply-area { margin-top: 1rem; display: flex; gap: 0.5rem; }
-
-        /* == Calendar Admin Panel == */
-        .calendar-container {
-            flex: 0 0 600px;
-            background-color: rgba(0,0,0,0.15);
-            border-radius: var(--border-radius); padding: 1.5rem;
-        }
+        .calendar-container { flex: 0 0 600px; background-color: rgba(0,0,0,0.15); border-radius: var(--border-radius); padding: 1.5rem; }
         .calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
         .calendar-header h3 { font-size: 1.8rem; color: var(--primary-color); margin: 0; }
         .calendar-header button { background: none; border: 2px solid var(--text-secondary-color); color: var(--text-secondary-color); width: 40px; height: 40px; border-radius: 50%; font-size: 1.5rem; cursor: pointer; transition: all 0.3s ease; }
@@ -212,558 +80,133 @@
         .calendar-day.selected { background-color: var(--primary-color); color: #111; }
         .day-number { font-weight: bold; }
         .event-indicator { width: 6px; height: 6px; border-radius: 50%; background-color: var(--info-color); margin-top: 4px; }
-        
         .date-detail-panel { overflow-y: auto; padding: 1rem; }
         .detail-header { border-bottom: 1px solid var(--border-color); margin-bottom: 1.5rem; padding-bottom: 1rem; }
-        .event-card {
-            background: rgba(255, 255, 255, 0.05); padding: 1.2rem;
-            border-radius: var(--border-radius); margin-bottom: 1rem;
-        }
+        .event-card { background: rgba(255, 255, 255, 0.05); padding: 1.2rem; border-radius: var(--border-radius); margin-bottom: 1rem; }
         .event-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
         .event-card-header h4 { margin: 0; color: var(--primary-color); }
         .event-card-body p { margin: 0 0 0.5rem; }
-        
-        /* == Broadcast Panel == */
-        #broadcast-panel {
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-        }
+        .event-order-details { display: none; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color); }
+        .event-order-details ul { list-style-type: none; padding: 0; }
+        .event-order-details li { background-color: #2a2a2a; padding: 0.5rem 1rem; border-radius: 5px; margin-bottom: 0.5rem; white-space: pre-wrap; }
+        #broadcast-panel { flex-direction: column; justify-content: center; align-items: center; }
         .broadcast-container { max-width: 700px; width: 100%; text-align: center; }
-
-        /* --- Responsive Adjustments --- */
-        @media (max-width: 1200px) {
-            .calendar-container { flex-basis: 450px; }
-        }
-        @media (max-width: 992px) {
-            .panel-content { flex-direction: column; overflow-y: auto; }
-            .sidebar { width: 100%; max-height: 250px; flex-shrink: 1; }
-            .main-view, .date-detail-panel { flex-grow: 1; }
-        }
+        #message-modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.7); display: none; align-items: center; justify-content: center; z-index: 500; }
+        .modal-content { background: var(--surface-color); padding: 2rem; border-radius: var(--border-radius); width: 90%; max-width: 500px; box-shadow: var(--shadow); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+        .modal-header h3 { margin: 0; color: var(--primary-color); }
+        .modal-close-btn { background: none; border: none; font-size: 1.5rem; color: var(--text-secondary-color); cursor: pointer; }
+        @media (max-width: 1200px) { .calendar-container { flex-basis: 450px; } }
+        @media (max-width: 992px) { .panel-content { flex-direction: column; overflow-y: auto; } .sidebar { width: 100%; max-height: 250px; flex-shrink: 1; } .main-view, .date-detail-panel { flex-grow: 1; } }
     </style>
 </head>
 <body>
-    
-    <!-- Auth Overlay -->
-    <div id="auth-overlay">
-        <div id="auth-box">
-            <h1>工作人員後台</h1>
-            <p>請輸入授權密碼以繼續</p>
-            <input type="password" id="password-input">
-            <p id="auth-error"></p>
-        </div>
-    </div>
-    
+    <div id="auth-overlay"><div id="auth-box"><h1>工作人員後台</h1><p>請輸入授權密碼以繼續</p><input type="password" id="password-input"><p id="auth-error"></p></div></div>
     <div class="admin-container">
         <div class="main-content">
-            <nav class="main-nav">
-                <button id="nav-users" class="nav-btn active">使用者管理</button>
-                <button id="nav-chat" class="nav-btn">客服系統</button>
-                <button id="nav-calendar" class="nav-btn">點餐日曆管理</button>
-                <button id="nav-tools" class="nav-btn">站務工具</button>
-            </nav>
-
-            <!-- User Management Panel -->
-            <div id="users-panel" class="panel active">
-                <div class="panel-content">
-                    <aside class="sidebar">
-                        <header class="component-header"><h2>所有使用者</h2></header>
-                        <ul id="user-list" class="component-list"></ul>
-                    </aside>
-                    <main id="user-detail-view" class="main-view user-detail-view">
-                        <p id="user-placeholder" class="placeholder-text">請從左側選擇一位使用者以查看詳情。</p>
-                        <div id="user-detail-content" style="display: none;">
-                            <!-- User info and balance card -->
-                            <div class="user-info-card">
-                                <div class="user-info-header">
-                                    <div id="user-detail-username" class="username"></div>
-                                    <div class="balance-display">
-                                        <div class="balance-label">目前餘額</div>
-                                        <div id="user-detail-balance" class="balance-amount"></div>
-                                    </div>
-                                </div>
-                                <div class="user-actions">
-                                    <button id="reset-password-btn" class="action-button secondary-btn">重設密碼為 12345678</button>
-                                    <button id="delete-user-btn" class="action-button danger-btn">刪除此帳號</button>
-                                </div>
-                                <!-- Transaction form -->
-                                <div>
-                                    <h4>手動記帳</h4>
-                                    <form id="transaction-form" class="transaction-form">
-                                        <div class="form-group">
-                                            <label for="trans-description">事由</label>
-                                            <input type="text" id="trans-description" required>
-                                        </div>
-                                        <div class="form-group" style="flex-grow: 0.5;">
-                                            <label for="trans-amount">金額</label>
-                                            <input type="number" id="trans-amount" required>
-                                        </div>
-                                        <button type="submit" class="action-button primary-btn" style="align-self: flex-end;">送出</button>
-                                    </form>
-                                </div>
-                            </div>
-                            <!-- Transaction History -->
-                            <div>
-                                <h3>交易紀錄</h3>
-                                <ul id="transaction-list" class="component-list" style="max-height: 400px; background: #2a2a2a; border-radius: var(--border-radius); padding: 0.5rem;"></ul>
-                            </div>
-                        </div>
-                    </main>
-                </div>
-            </div>
-
-            <!-- Customer Service Panel -->
-            <div id="chat-panel" class="panel">
-                <div class="panel-content">
-                    <aside class="sidebar">
-                        <header class="component-header"><h2>顧客對話列表</h2></header>
-                        <ul id="conversation-list" class="component-list"></ul>
-                    </aside>
-                    <main class="chat-view">
-                        <header class="component-header"><h2 id="chat-header-title">選擇一個對話</h2></header>
-                        <div id="chat-window"><p id="chat-placeholder" class="placeholder-text">請從左側選擇一位顧客以查看對話紀錄。</p></div>
-                    </main>
-                </div>
-            </div>
-
-            <!-- Calendar Admin Panel -->
-            <div id="calendar-panel" class="panel">
-                <div class="panel-content">
-                    <div class="calendar-container">
-                        <div class="calendar-header">
-                            <button id="prev-month-btn"><</button>
-                            <h3 id="current-month-year"></h3>
-                            <button id="next-month-btn">></button>
-                        </div>
-                        <div class="calendar-weekdays"><div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div></div>
-                        <div class="calendar-grid" id="calendar-grid"></div>
-                    </div>
-                    <div class="main-view date-detail-panel" id="date-detail-panel">
-                        <header class="component-header"><h2 id="detail-header">請選擇一個日期</h2></header>
-                        <div id="detail-content">
-                           <!-- JS will render event list or creation form here -->
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Site Tools Panel -->
-            <div id="tools-panel" class="panel">
-                <div id="broadcast-panel" class="panel-content">
-                    <div class="broadcast-container">
-                        <h2>發布全站公告</h2>
-                        <p style="color: var(--text-secondary-color);">此訊息將會發送給所有已註冊的使用者。</p>
-                        <div class="form-group">
-                            <textarea id="broadcast-message-input" placeholder="請在此輸入要群發的訊息內容..."></textarea>
-                        </div>
-                        <button id="send-broadcast-btn" class="action-button primary-btn" style="padding: 0.8rem 2rem;">確認送出</button>
-                    </div>
-                </div>
-            </div>
+            <nav class="main-nav"><button id="nav-users" class="nav-btn active">使用者管理</button><button id="nav-chat" class="nav-btn">客服系統</button><button id="nav-calendar" class="nav-btn">點餐日曆管理</button><button id="nav-tools" class="nav-btn">站務工具</button></nav>
+            <div id="users-panel" class="panel active"><div class="panel-content"><aside class="sidebar"><header class="component-header"><h2>所有使用者</h2></header><ul id="user-list" class="component-list"></ul></aside><main id="user-detail-view" class="main-view user-detail-view"><p id="user-placeholder" class="placeholder-text">請從左側選擇一位使用者以查看詳情。</p><div id="user-detail-content" style="display: none;"><div class="user-info-card"><div class="user-info-header"><div id="user-detail-username" class="username"></div><div class="balance-display"><div class="balance-label">目前餘額</div><div id="user-detail-balance" class="balance-amount"></div></div></div><div class="user-actions"><button id="send-message-btn" class="action-button primary-btn">發送訊息</button><button id="reset-password-btn" class="action-button secondary-btn">重設密碼</button><button id="delete-user-btn" class="action-button danger-btn">刪除帳號</button></div><div><h4>手動記帳</h4><form id="transaction-form" class="transaction-form"><div class="form-group"><label for="trans-description">事由</label><input type="text" id="trans-description" required></div><div class="form-group" style="flex-grow: 0.5;"><label for="trans-amount">金額</label><input type="number" id="trans-amount" required></div><button type="submit" class="action-button primary-btn" style="align-self: flex-end;">送出</button></form></div></div><div><h3>交易紀錄</h3><ul id="transaction-list" class="component-list" style="max-height: 400px; background: #2a2a2a; border-radius: var(--border-radius); padding: 0.5rem;"></ul></div></div></main></div></div>
+            <div id="chat-panel" class="panel"><div class="panel-content"><aside class="sidebar"><header class="component-header"><h2>顧客對話列表</h2></header><ul id="conversation-list" class="component-list"></ul></aside><main class="chat-view"><header class="component-header"><h2 id="chat-header-title">選擇一個對話</h2></header><div id="chat-window"><p id="chat-placeholder" class="placeholder-text">請從左側選擇一位顧客以查看對話紀錄。</p></div></main></div></div>
+            <div id="calendar-panel" class="panel"><div class="panel-content"><div class="calendar-container"><div class="calendar-header"><button id="prev-month-btn"><</button><h3 id="current-month-year"></h3><button id="next-month-btn">></button></div><div class="calendar-weekdays"><div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div></div><div class="calendar-grid" id="calendar-grid"></div></div><div class="main-view date-detail-panel" id="date-detail-panel"><header class="component-header"><h2 id="detail-header">請選擇一個日期</h2></header><div id="detail-content"></div></div></div></div>
+            <div id="tools-panel" class="panel"><div id="broadcast-panel" class="panel-content"><div class="broadcast-container"><h2>發布全站公告</h2><p style="color: var(--text-secondary-color);">此訊息將會發送給所有已註冊的使用者。</p><div class="form-group"><textarea id="broadcast-message-input" placeholder="請在此輸入要群發的訊息內容..."></textarea></div><button id="send-broadcast-btn" class="action-button primary-btn" style="padding: 0.8rem 2rem;">確認送出</button></div></div></div>
         </div>
     </div>
-
-    <!-- Re-using old JS for now. It will be replaced in the next step -->
+    <div id="message-modal-overlay"><div class="modal-content"><div class="modal-header"><h3 id="message-modal-title"></h3><button class="modal-close-btn" id="message-modal-close-btn">×</button></div><div class="form-group"><textarea id="message-modal-textarea" style="min-height: 150px;" placeholder="請輸入訊息..."></textarea></div><button id="message-modal-send-btn" class="action-button primary-btn" style="width: 100%;">發送</button></div></div>
+    
 <script>
-    // ===============================================
-    //      工作人員後台 (v6.3 - 完整功能修復版)
-    // ===============================================
-    document.addEventListener('DOMContentLoaded', () => {
-        const API_BASE_URL = 'https://no-one-help-official-website-v3-1.onrender.com';
-        const STAFF_PASSWORD = "310469971008";
-
-        // --- 全局狀態管理 ---
-        let state = {
-            users: [],
-            conversations: [],
-            calendarEvents: {},
-            currentUser: null,
-            currentUserDetail: null,
-            currentConversation: null,
-            selectedDate: null,
-            calendarDate: new Date(),
-            chatFetchInterval: null, // v6.3: 為客服系統新增計時器
-        };
-
-        // --- DOM 元素快取 (大部分無變動) ---
-        const elements = {
-            authOverlay: document.getElementById('auth-overlay'),
-            passwordInput: document.getElementById('password-input'),
-            authError: document.getElementById('auth-error'),
-            navButtons: document.querySelectorAll('.nav-btn'),
-            panels: document.querySelectorAll('.panel'),
-            userList: document.getElementById('user-list'),
-            userDetailContent: document.getElementById('user-detail-content'),
-            userPlaceholder: document.getElementById('user-placeholder'),
-            userDetailUsername: document.getElementById('user-detail-username'),
-            userDetailBalance: document.getElementById('user-detail-balance'),
-            resetPasswordBtn: document.getElementById('reset-password-btn'),
-            deleteUserBtn: document.getElementById('delete-user-btn'),
-            transactionForm: document.getElementById('transaction-form'),
-            transDescriptionInput: document.getElementById('trans-description'),
-            transAmountInput: document.getElementById('trans-amount'),
-            transactionList: document.getElementById('transaction-list'),
-            // 客服系統
-            conversationList: document.getElementById('conversation-list'),
-            chatHeaderTitle: document.getElementById('chat-header-title'),
-            chatWindow: document.getElementById('chat-window'),
-            chatPlaceholder: document.getElementById('chat-placeholder'),
-            // 日曆系統
-            calendarGrid: document.getElementById('calendar-grid'),
-            currentMonthYear: document.getElementById('current-month-year'),
-            prevMonthBtn: document.getElementById('prev-month-btn'),
-            nextMonthBtn: document.getElementById('next-month-btn'),
-            detailHeader: document.getElementById('detail-header'),
-            detailContent: document.getElementById('detail-content'),
-            // 工具
-            broadcastMessageInput: document.getElementById('broadcast-message-input'),
-            sendBroadcastBtn: document.getElementById('send-broadcast-btn'),
-        };
-
-        function init() {
-            initAuth();
-        }
-
-        function runMainApp() {
-            elements.authOverlay.classList.add('hidden');
-            initPanelSwitching();
-            initUserPanel();
-            initChatPanel();
-            initCalendarPanel();
-            initToolsPanel();
-        }
-
-        function initAuth() {
-             elements.passwordInput.addEventListener('keydown', (e) => {
-                elements.authError.textContent = '';
-                if (e.key === 'Enter') { checkPassword(); }
-            });
-        }
-        function checkPassword() {
-            if (elements.passwordInput.value === STAFF_PASSWORD) { runMainApp(); } 
-            else { elements.authError.textContent = '密碼錯誤'; elements.passwordInput.value = ''; }
-        }
-        
-        function initPanelSwitching() {
-            const navMap = {
-                'nav-users': 'users-panel', 'nav-chat': 'chat-panel',
-                'nav-calendar': 'calendar-panel', 'nav-tools': 'tools-panel'
-            };
-            elements.navButtons.forEach(btn => {
-                btn.addEventListener('click', () => {
-                    elements.navButtons.forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                    const targetPanelId = navMap[btn.id];
-                    elements.panels.forEach(p => { p.classList.toggle('active', p.id === targetPanelId); });
-
-                    // v6.3: 控制客服系統的輪詢
-                    if (targetPanelId === 'chat-panel') { startChatFetching(); } 
-                    else { stopChatFetching(); }
-                });
-            });
-        }
-        
-        async function initUserPanel() {
-            await fetchAllUsers(); renderUserList();
-            elements.resetPasswordBtn.addEventListener('click', handleResetPassword);
-            elements.deleteUserBtn.addEventListener('click', handleDeleteUser);
-            elements.transactionForm.addEventListener('submit', handleAddTransaction);
-        }
-
-        async function fetchAllUsers() {
-            try { state.users = await (await fetch(`${API_BASE_URL}/api/admin/users`)).json(); } 
-            catch (error) { console.error("無法獲取使用者列表:", error); }
-        }
-        
-        function renderUserList() {
-            elements.userList.innerHTML = '';
-            state.users.forEach(user => {
-                const li = document.createElement('li');
-                li.className = 'list-item'; li.dataset.userId = user._id;
-                li.innerHTML = `<span>${user.username}</span><span style="float: right; color: var(--text-secondary-color)">$${user.balance}</span>`;
-                li.addEventListener('click', () => selectUser(user._id));
-                elements.userList.appendChild(li);
-            });
-        }
-        
-        async function selectUser(userId) {
-            state.currentUser = state.users.find(u => u._id === userId);
-            document.querySelectorAll('#user-list .list-item').forEach(li => { li.classList.toggle('active', li.dataset.userId === userId); });
-            elements.userPlaceholder.style.display = 'block'; elements.userPlaceholder.textContent = "正在載入使用者資料...";
-            elements.userDetailContent.style.display = 'none';
-            try {
-                const result = await (await fetch(`${API_BASE_URL}/api/admin/users/${userId}`)).json();
-                if (!result.success) throw new Error(result.message);
-                state.currentUserDetail = result.user;
-                renderUserDetail();
-            } catch(error) { console.error("無法獲取使用者詳細資料:", error); elements.userPlaceholder.textContent = "獲取資料失敗，請重試。"; }
-        }
-        
-        function renderUserDetail() { /* ... 此函數無變動 ... */
-            if (!state.currentUserDetail) return;
-            elements.userPlaceholder.style.display = 'none'; elements.userDetailContent.style.display = 'block';
-            elements.userDetailUsername.textContent = state.currentUserDetail.username;
-            elements.userDetailBalance.textContent = `$${state.currentUserDetail.balance}`;
-            if(state.currentUserDetail.transactions && state.currentUserDetail.transactions.length > 0) {
-                 let tHtml = '';
-                 state.currentUserDetail.transactions.slice().reverse().forEach(t => {
-                     const amountClass = t.amount >= 0 ? 'amount-positive' : 'amount-negative';
-                     const amountSign = t.amount >= 0 ? '+' : '';
-                     tHtml += `<li class="list-item"><div><span>${t.description}</span><span style="float: right; font-weight: bold;" class="${amountClass}">${amountSign}${t.amount}</span></div><div style="font-size: 0.8rem; color: var(--text-secondary-color);"><span>${new Date(t.date).toLocaleString()}</span><span style="float: right;">餘額: $${t.resultingBalance}</span></div></li>`
-                 });
-                 elements.transactionList.innerHTML = tHtml;
-            } else { elements.transactionList.innerHTML = `<li class="list-item" style="text-align:center;">無交易紀錄</li>`; }
-        }
-
-        async function handleResetPassword() { /* ... 此函數無變動 ... */
-             if (!state.currentUser) return;
-            if (!confirm(`確定要將使用者 ${state.currentUser.username} 的密碼重設為 "12345678" 嗎？`)) return;
-            try {
-                const result = await (await fetch(`${API_BASE_URL}/api/admin/users/${state.currentUser._id}/reset-password`, { method: 'POST' })).json();
-                if (!result.success) throw new Error(result.message); alert(result.message);
-            } catch(error) { alert(`重設密碼失敗: ${error.message}`); }
-        }
-
-        async function handleDeleteUser() { /* ... 此函數無變動 ... */
-            if (!state.currentUser) return;
-            if (!confirm(`【警告】確定要永久刪除使用者 ${state.currentUser.username} 嗎？此操作無法復原！`)) return;
-            try {
-                const result = await (await fetch(`${API_BASE_URL}/api/admin/users/${state.currentUser._id}`, { method: 'DELETE' })).json();
-                if (!result.success) throw new Error(result.message);
-                alert(result.message); await fetchAllUsers(); renderUserList();
-                elements.userPlaceholder.style.display = 'block'; elements.userPlaceholder.textContent = "請從左側選擇一位使用者以查看詳情。";
-                elements.userDetailContent.style.display = 'none'; state.currentUser = null; state.currentUserDetail = null;
-            } catch(error) { alert(`刪除用戶失敗: ${error.message}`); }
-        }
-        
-        async function handleAddTransaction(e) { /* ... 此函數無變動 ... */
-            e.preventDefault(); if (!state.currentUser) return;
-            const description = elements.transDescriptionInput.value.trim();
-            const amount = parseFloat(elements.transAmountInput.value);
-            if (!description || isNaN(amount)) { alert("請填寫有效的事由和金額"); return; }
-            try {
-                const result = await (await fetch(`${API_BASE_URL}/api/admin/transaction`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: state.currentUser._id, description, amount })})).json();
-                if (!result.success) throw new Error(result.message);
-                alert(result.message); state.currentUser.balance = result.newBalance;
-                if(state.currentUserDetail) state.currentUserDetail.balance = result.newBalance;
-                await selectUser(state.currentUser._id); await fetchAllUsers(); renderUserList(); 
-                document.querySelector(`#user-list .list-item[data-user-id="${state.currentUser._id}"]`).classList.add('active');
-                elements.transactionForm.reset();
-            } catch (error) { alert(`記帳失敗: ${error.message}`); }
-        }
-
-        // ================== 4. 客服系統面板 (v6.3 邏輯修復) ==================
-        function initChatPanel() {
-            // 邏輯入口改為點擊面板時觸發
-        }
-
-        function startChatFetching() {
-            stopChatFetching(); // 先停止舊的，確保不會重複
-            fetchAllConversations(); // 立即獲取一次
-            state.chatFetchInterval = setInterval(fetchAllConversations, 5000); // 設置新的輪詢
-        }
-
-        function stopChatFetching() {
-            clearInterval(state.chatFetchInterval);
-        }
-
-        async function fetchAllConversations() {
-            try {
-                const latestData = await (await fetch(`${API_BASE_URL}/api/admin/conversations`)).json();
-                if (JSON.stringify(latestData) !== JSON.stringify(state.conversations)) {
-                    state.conversations = latestData;
-                    renderConversationList();
-                    if (state.currentConversation) {
-                        // 如果正在查看某個對話，刷新它
-                        const updatedConvo = state.conversations.find(c => c._id === state.currentConversation._id);
-                        if (updatedConvo) {
-                            state.currentConversation = updatedConvo;
-                            renderChatWindow();
-                        } else {
-                            // 如果該對話已被刪除
-                            state.currentConversation = null;
-                            selectConversation(null);
-                        }
-                    }
-                }
-            } catch (error) { console.error('獲取所有對話失敗:', error); elements.conversationList.innerHTML = `<li class="list-item" style="color: red;">無法連接伺服器</li>`; stopChatFetching(); }
-        }
-
-        function renderConversationList() {
-            const currentActiveId = state.currentConversation?._id;
-            elements.conversationList.innerHTML = '';
-            if (state.conversations.length === 0) {
-                elements.conversationList.innerHTML = '<li class="list-item">尚無任何對話</li>';
-                return;
-            }
-            state.conversations.forEach(convo => {
-                const li = document.createElement('li');
-                li.className = 'list-item'; li.dataset.convoId = convo._id;
-                li.textContent = convo.username;
-                if (convo._id === currentActiveId) { li.classList.add('active'); }
-                li.addEventListener('click', () => selectConversation(convo));
-                elements.conversationList.appendChild(li);
-            });
-        }
-
-        function selectConversation(convo) {
-            state.currentConversation = convo;
-            renderConversationList(); // 更新選擇樣式
-            renderChatWindow();
-        }
-
-        function renderChatWindow() {
-            if (!state.currentConversation) {
-                elements.chatHeaderTitle.textContent = '選擇一個對話';
-                elements.chatWindow.innerHTML = '<p id="chat-placeholder" class="placeholder-text">請從左側選擇一位顧客以查看對話紀錄。</p>';
-                return;
-            }
-            elements.chatHeaderTitle.textContent = `與 ${state.currentConversation.username} 的對話`;
-            elements.chatWindow.innerHTML = '';
-
-            if (state.currentConversation.messages.length === 0) {
-                elements.chatWindow.innerHTML = '<p class="placeholder-text">此用戶尚未發送任何訊息。</p>';
-                return;
-            }
-                
-            state.currentConversation.messages.forEach(msg => {
-                const groupDiv = document.createElement('div');
-                groupDiv.className = 'message-group';
-                let answerHTML = '';
-                    
-                if (msg.staffReply) {
-                    answerHTML = `<p><b>您的回覆:</b> ${msg.staffReply}</p>`;
-                } else if (!msg.isStaffMessage) { // 只有顧客的訊息需要回覆
-                    answerHTML = `<p><b>您的回覆:</b> <i>尚未回覆</i></p>
-                                <div class="reply-area">
-                                    <input type="text" class="reply-input" id="reply-input-${msg._id}" placeholder="請在此輸入回覆...">
-                                    <button class="action-button primary-btn" data-message-id="${msg._id}">送出</button>
-                                </div>`;
-                }
-                const msgBody = msg.isStaffMessage ? `<div class="staff-message"><p><b>您 (主動發送):</b> ${msg.customerMessage}</p></div>` 
-                                                : `<div class="customer-question"><p><b>顧客:</b> ${msg.customerMessage}</p></div><div class="staff-answer">${answerHTML}</div>`;
-
-                groupDiv.innerHTML = msgBody;
-                elements.chatWindow.appendChild(groupDiv);
-            });
-            
-            elements.chatWindow.onclick = function(event) {
-                if (event.target.classList.contains('primary-btn') && event.target.dataset.messageId) {
-                    const messageId = event.target.dataset.messageId;
-                    sendReply(messageId);
-                }
-            }
-            elements.chatWindow.scrollTop = elements.chatWindow.scrollHeight;
-        }
-
-        async function sendReply(messageId) {
-            const inputEl = document.getElementById(`reply-input-${messageId}`);
-            const replyText = inputEl.value.trim();
-            if (!replyText || !state.currentConversation) return alert('回覆內容不能為空！');
-            
-            stopChatFetching(); // 暫停輪詢避免衝突
-            try {
-                const response = await fetch(`${API_BASE_URL}/api/admin/reply`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: state.currentConversation.userId, messageId, replyText }) });
-                const data = await response.json(); 
-                if (!data.success) { throw new Error(data.message); }
-                await fetchAllConversations();
-            } catch (error) { alert(`回覆失敗：${error.message}`); } 
-            finally { startChatFetching(); }
-        }
-
-        // ================== 5. 日曆管理面板 (邏輯無變動) ==================
-        function initCalendarPanel() {
-            elements.prevMonthBtn.addEventListener('click', () => { state.calendarDate.setMonth(state.calendarDate.getMonth() - 1); renderCalendar(); });
-            elements.nextMonthBtn.addEventListener('click', () => { state.calendarDate.setMonth(state.calendarDate.getMonth() + 1); renderCalendar(); });
-            fetchEventsAndRenderCalendar();
-        }
-        async function fetchEventsAndRenderCalendar() {
-            try {
-                state.calendarEvents = await(await fetch(`${API_BASE_URL}/api/calendar/events`)).json();
-                renderCalendar();
-                if(state.selectedDate) { handleDayClick(state.selectedDate); } 
-                else { elements.detailHeader.textContent = `請選擇一個日期`; elements.detailContent.innerHTML = ''; }
-            } catch (error) { console.error("獲取日曆事件失敗:", error); elements.detailContent.innerHTML = `<p style="color: var(--error-color);">無法載入日曆資料。</p>`; }
-        }
-        function renderCalendar() { /* ... 此函數無變動 ... */
-            elements.calendarGrid.innerHTML = '';
-            const year = state.calendarDate.getFullYear(); const month = state.calendarDate.getMonth();
-            elements.currentMonthYear.textContent = `${year}年 ${month + 1}月`;
-            const firstDayOfMonth = new Date(year, month, 1).getDay(); const daysInMonth = new Date(year, month + 1, 0).getDate();
-            for (let i = 0; i < firstDayOfMonth; i++) { elements.calendarGrid.innerHTML += `<div class="calendar-day not-current-month"></div>`; }
-            for (let i = 1; i <= daysInMonth; i++) {
-                const dayEl = document.createElement('div');
-                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
-                dayEl.className = 'calendar-day'; dayEl.dataset.date = dateStr;
-                dayEl.innerHTML = `<span class="day-number">${i}</span>`;
-                if (state.calendarEvents[dateStr] && state.calendarEvents[dateStr].length > 0) { dayEl.innerHTML += `<div class="event-indicator-container"> <div class="event-indicator"></div> </div>`; }
-                if (dateStr === state.selectedDate) { dayEl.classList.add('selected'); }
-                dayEl.addEventListener('click', () => handleDayClick(dateStr)); elements.calendarGrid.appendChild(dayEl);
-            }
-        }
-        function handleDayClick(dateStr) { state.selectedDate = dateStr; renderCalendar(); elements.detailHeader.textContent = `編輯 ${dateStr} 的活動`; renderEventDetailPanel(); }
-        function renderEventDetailPanel() { /* ... 此函數無變動 ... */
-            const eventsForDay = state.calendarEvents[state.selectedDate] || []; let html = '<div id="event-list-container">';
-            if (eventsForDay.length > 0) {
-                eventsForDay.forEach(event => { html += `<div class="event-card" data-event-id="${event._id}"><div class="event-card-header"><h4>${event.vendorName}</h4><div><button class="action-button secondary-btn edit-event-btn">編輯</button><button class="action-button danger-btn delete-event-btn">刪除</button></div></div><div class="event-card-body"><p>截止時間: ${new Date(event.deadline).toLocaleString()}</p><p>訂單數: ${event.orders.length}</p></div></div>`; });
-            } else { html += '<p>本日無活動。</p>'; }
-            html += '</div> <hr style="margin: 2rem 0; border-color: var(--border-color)"> <button id="add-new-event-btn" class="action-button primary-btn">新增本日活動</button>';
-            elements.detailContent.innerHTML = html;
-            document.getElementById('add-new-event-btn').addEventListener('click', () => renderEventForm(null));
-            document.querySelectorAll('.edit-event-btn').forEach(btn => {
-                const eventId = btn.closest('.event-card').dataset.eventId; const eventData = findEventById(eventId);
-                btn.addEventListener('click', () => renderEventForm(eventData));
-            });
-            document.querySelectorAll('.delete-event-btn').forEach(btn => {
-                const eventId = btn.closest('.event-card').dataset.eventId;
-                btn.addEventListener('click', () => deleteEvent(eventId));
-            });
-        }
-        function findEventById(eventId){ for (const date in state.calendarEvents) { const event = state.calendarEvents[date].find(e => e._id === eventId); if (event) return event; } return null; }
-        async function deleteEvent(eventId) { /* ... 此函數無變動 ... */
-            if (!confirm("確定要刪除這個活動嗎？")) return;
-            try {
-                const result = await (await fetch(`${API_BASE_URL}/api/admin/calendar/event/${eventId}`, { method: 'DELETE' })).json();
-                if (!result.success) throw new Error(result.message);
-                alert("活動已刪除"); fetchEventsAndRenderCalendar();
-            } catch(error) { alert(`刪除失敗: ${error.message}`); }
-        }
-        function renderEventForm(event) { /* ... 此函數無變動 ... */
-             const isEditing = event !== null; const deadline = isEditing ? new Date(event.deadline).toISOString().substring(0, 16) : '';
-            const formHtml = `<h3>${isEditing ? '編輯活動' : '新增活動'}</h3><form id="event-form"><div class="form-group"><label for="vendorName">店家名稱</label><input type="text" id="vendorName" name="vendorName" value="${event?.vendorName || ''}" required></div><div class="form-group"><label for="deadline">點餐截止時間</label><input type="datetime-local" id="deadline" name="deadline" value="${deadline}" required></div><div class="form-group"><label for="menuText">文字菜單 (選填)</label><textarea id="menuText" name="menuText">${event?.menuText || ''}</textarea></div><div class="form-group"><label for="menuImage">上傳菜單圖片 (選填)</label><input type="file" id="menuImage" name="menuImage" accept="image/*">${isEditing && event.menuImageURL ? `<p style="font-size:0.9rem; color:var(--text-secondary-color);">目前圖片: <a href="${event.menuImageURL}" target="_blank" style="color:var(--info-color);">點此查看</a> (上傳新圖片將會覆蓋)</p>` : ''}</div><div style="display: flex; gap: 1rem;"><button type="submit" class="action-button primary-btn">${isEditing ? '更新活動' : '建立活動'}</button><button type="button" id="cancel-edit-btn" class="action-button secondary-btn">取消</button></div></form>`;
-            elements.detailContent.innerHTML = formHtml;
-            document.getElementById('cancel-edit-btn').addEventListener('click', renderEventDetailPanel);
-            document.getElementById('event-form').addEventListener('submit', (e) => handleEventFormSubmit(e, event));
-        }
-        async function handleEventFormSubmit(e, event) { /* ... 此函數無變動 ... */
-            e.preventDefault(); const form = e.target; const formData = new FormData(form);
-            formData.append('date', state.selectedDate);
-            const isEditing = event !== null; const url = isEditing ? `${API_BASE_URL}/api/admin/calendar/event/${event._id}` : `${API_BASE_URL}/api/admin/calendar/event`;
-            const method = isEditing ? 'PUT' : 'POST';
-            try {
-                const result = await (await fetch(url, { method, body: formData })).json();
-                if (!result.success) throw new Error(result.message);
-                alert(`活動已成功${isEditing ? '更新' : '建立'}！`); fetchEventsAndRenderCalendar();
-            } catch(error) { alert(`錯誤: ${error.message}`); }
-        }
-        
-        // ================== 6. 站務工具面板 (邏輯無變動) ==================
-        function initToolsPanel() {
-            elements.sendBroadcastBtn.addEventListener('click', handleBroadcast);
-        }
-        async function handleBroadcast() {
-            const message = elements.broadcastMessageInput.value.trim();
-            if (!message || !confirm("確定要將這則訊息發送給所有使用者嗎？")) return;
-            try {
-                const result = await(await fetch(`${API_BASE_URL}/api/admin/message/broadcast`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message }) })).json();
-                if (!result.success) throw new Error(result.message);
-                alert("全站公告已成功發送！"); elements.broadcastMessageInput.value = '';
-            } catch(error) { alert(`群發失敗: ${error.message}`); }
-        }
-        
-        // --- App Entry Point ---
-        init();
-    });
+// ===============================================
+// 工作人員後台 (v6.4 - 錯誤修正與功能還原版)
+// ===============================================
+document.addEventListener('DOMContentLoaded', () => {
+    const API_BASE_URL = 'https://no-one-help-official-website-v3-1.onrender.com';
+    const STAFF_PASSWORD = "310469971008";
+    let state = { users: [], conversations: [], calendarEvents: {}, currentUser: null, currentUserDetail: null, currentConversation: null, selectedDate: null, calendarDate: new Date(), chatFetchInterval: null };
+    const elements = {
+        authOverlay: document.getElementById('auth-overlay'), passwordInput: document.getElementById('password-input'), authError: document.getElementById('auth-error'),
+        navButtons: document.querySelectorAll('.nav-btn'), panels: document.querySelectorAll('.panel'), userList: document.getElementById('user-list'),
+        userDetailContent: document.getElementById('user-detail-content'), userPlaceholder: document.getElementById('user-placeholder'),
+        userDetailUsername: document.getElementById('user-detail-username'), userDetailBalance: document.getElementById('user-detail-balance'),
+        resetPasswordBtn: document.getElementById('reset-password-btn'), deleteUserBtn: document.getElementById('delete-user-btn'), sendMessageBtn: document.getElementById('send-message-btn'),
+        transactionForm: document.getElementById('transaction-form'), transDescriptionInput: document.getElementById('trans-description'),
+        transAmountInput: document.getElementById('trans-amount'), transactionList: document.getElementById('transaction-list'),
+        conversationList: document.getElementById('conversation-list'), chatHeaderTitle: document.getElementById('chat-header-title'), chatWindow: document.getElementById('chat-window'),
+        calendarGrid: document.getElementById('calendar-grid'), currentMonthYear: document.getElementById('current-month-year'),
+        prevMonthBtn: document.getElementById('prev-month-btn'), nextMonthBtn: document.getElementById('next-month-btn'),
+        detailHeader: document.getElementById('detail-header'), detailContent: document.getElementById('detail-content'),
+        broadcastMessageInput: document.getElementById('broadcast-message-input'), sendBroadcastBtn: document.getElementById('send-broadcast-btn'),
+        messageModal: { overlay: document.getElementById('message-modal-overlay'), title: document.getElementById('message-modal-title'), textarea: document.getElementById('message-modal-textarea'), sendBtn: document.getElementById('message-modal-send-btn'), closeBtn: document.getElementById('message-modal-close-btn') }
+    };
+    function init() { initAuth(); }
+    function runMainApp() {
+        elements.authOverlay.classList.add('hidden');
+        initPanelSwitching(); initUserPanel(); initCalendarPanel(); initToolsPanel(); initMessageModal();
+        document.getElementById('nav-chat').addEventListener('click', () => { if (!state.chatFetchInterval) { initChatPanel(); } });
+    }
+    function initAuth() { elements.passwordInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') checkPassword(); }); }
+    function checkPassword() { if (elements.passwordInput.value === STAFF_PASSWORD) runMainApp(); else elements.authError.textContent = '密碼錯誤'; }
+    function initPanelSwitching() {
+        const navMap = { 'nav-users': 'users-panel', 'nav-chat': 'chat-panel', 'nav-calendar': 'calendar-panel', 'nav-tools': 'tools-panel' };
+        elements.navButtons.forEach(btn => btn.addEventListener('click', () => {
+            elements.navButtons.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            const targetPanelId = navMap[btn.id];
+            elements.panels.forEach(p => p.classList.toggle('active', p.id === targetPanelId));
+            if (targetPanelId === 'chat-panel') startChatFetching(); else stopChatFetching();
+        }));
+    }
+    async function initUserPanel() {
+        await fetchAllUsers(); renderUserList();
+        elements.resetPasswordBtn.addEventListener('click', handleResetPassword);
+        elements.deleteUserBtn.addEventListener('click', handleDeleteUser);
+        elements.transactionForm.addEventListener('submit', handleAddTransaction);
+        elements.sendMessageBtn.addEventListener('click', () => { if(state.currentUserDetail) openMessageModal(state.currentUserDetail); });
+    }
+    async function fetchAllUsers() { try { state.users = await (await fetch(`${API_BASE_URL}/api/admin/users`)).json(); } catch (error) { console.error("無法獲取使用者列表:", error); } }
+    function renderUserList() {
+        elements.userList.innerHTML = '';
+        state.users.forEach(user => { const li = document.createElement('li'); li.className = 'list-item'; li.dataset.userId = user._id; li.innerHTML = `<span>${user.username}</span><span style="float: right; color: var(--text-secondary-color)">$${user.balance}</span>`; li.addEventListener('click', () => selectUser(user._id)); elements.userList.appendChild(li); });
+    }
+    async function selectUser(userId) {
+        state.currentUser = state.users.find(u => u._id === userId);
+        document.querySelectorAll('#user-list .list-item').forEach(li => { li.classList.toggle('active', li.dataset.userId === userId); });
+        elements.userPlaceholder.style.display = 'block'; elements.userPlaceholder.textContent = "正在載入..."; elements.userDetailContent.style.display = 'none';
+        try { const result = await (await fetch(`${API_BASE_URL}/api/admin/users/${userId}`)).json(); if (!result.success) throw new Error(result.message); state.currentUserDetail = result.user; renderUserDetail(); } catch (error) { elements.userPlaceholder.textContent = "獲取資料失敗"; }
+    }
+    function renderUserDetail() {
+        if (!state.currentUserDetail) return;
+        elements.userPlaceholder.style.display = 'none'; elements.userDetailContent.style.display = 'block'; elements.userDetailUsername.textContent = state.currentUserDetail.username; elements.userDetailBalance.textContent = `$${state.currentUserDetail.balance}`;
+        if (state.currentUserDetail.transactions?.length > 0) {
+            let tHtml = ''; state.currentUserDetail.transactions.slice().reverse().forEach(t => { const aClass = t.amount >= 0 ? 'positive' : 'negative'; const aSign = t.amount >= 0 ? '+' : ''; tHtml += `<li class="list-item"><div><span>${t.description}</span><span style="float: right; font-weight: bold;" class="amount-${aClass}">${aSign}${t.amount}</span></div><div style="font-size: 0.8rem; color: var(--text-secondary-color);"><span>${new Date(t.date).toLocaleString()}</span><span style="float: right;">餘額: $${t.resultingBalance}</span></div></li>`; }); elements.transactionList.innerHTML = tHtml;
+        } else { elements.transactionList.innerHTML = `<li class="list-item" style="text-align:center;">無交易紀錄</li>`; }
+    }
+    async function handleResetPassword() { if (!state.currentUser) return; if (!confirm(`確定重設 ${state.currentUser.username} 的密碼嗎？`)) return; try { const result = await (await fetch(`${API_BASE_URL}/api/admin/users/${state.currentUser._id}/reset-password`, { method: 'POST' })).json(); if (!result.success) throw new Error(result.message); alert(result.message); } catch (error) { alert(`失敗: ${error.message}`); } }
+    async function handleDeleteUser() { if (!state.currentUser) return; if (!confirm(`確定永久刪除 ${state.currentUser.username} 嗎？`)) return; try { const result = await (await fetch(`${API_BASE_URL}/api/admin/users/${state.currentUser._id}`, { method: 'DELETE' })).json(); if (!result.success) throw new Error(result.message); alert(result.message); await fetchAllUsers(); renderUserList(); elements.userPlaceholder.style.display = 'block'; elements.userPlaceholder.textContent = "請選擇一位使用者"; elements.userDetailContent.style.display = 'none'; state.currentUser = null; state.currentUserDetail = null; } catch (error) { alert(`失敗: ${error.message}`); } }
+    async function handleAddTransaction(e) { e.preventDefault(); if (!state.currentUser) return; const description = elements.transDescriptionInput.value.trim(); const amount = parseFloat(elements.transAmountInput.value); if (!description || isNaN(amount)) { alert("請填寫有效事由和金額"); return; } try { const result = await (await fetch(`${API_BASE_URL}/api/admin/transaction`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: state.currentUser._id, description, amount }) })).json(); if (!result.success) throw new Error(result.message); alert(result.message); await selectUser(state.currentUser._id); await fetchAllUsers(); renderUserList(); document.querySelector(`#user-list .list-item[data-user-id="${state.currentUser._id}"]`).classList.add('active'); elements.transactionForm.reset(); } catch (error) { alert(`記帳失敗: ${error.message}`); } }
+    function initChatPanel() { elements.conversationList.innerHTML = ''; elements.chatWindow.innerHTML = '<p class="placeholder-text">正在載入對話列表...</p>'; }
+    function startChatFetching() { if (state.chatFetchInterval) return; fetchAllConversations(); state.chatFetchInterval = setInterval(fetchAllConversations, 5000); }
+    function stopChatFetching() { clearInterval(state.chatFetchInterval); state.chatFetchInterval = null; }
+    async function fetchAllConversations() { try { const latestData = await (await fetch(`${API_BASE_URL}/api/admin/conversations`)).json(); if (JSON.stringify(latestData) !== JSON.stringify(state.conversations)) { state.conversations = latestData; renderConversationList(); if (state.currentConversation) { const updatedConvo = state.conversations.find(c => c._id === state.currentConversation._id); if (updatedConvo) { state.currentConversation = updatedConvo; renderChatWindow(); } else { selectConversation(null); } } } } catch (error) { console.error('獲取對話失敗:', error); elements.conversationList.innerHTML = `<li class="list-item" style="color: red;">無法連接伺服器</li>`; stopChatFetching(); } }
+    function renderConversationList() { const currentId = state.currentConversation?._id; elements.conversationList.innerHTML = state.conversations.length === 0 ? '<li class="list-item">尚無任何對話</li>' : state.conversations.map(c => `<li class="list-item ${c._id === currentId ? 'active' : ''}" data-convo-id="${c._id}">${c.username}</li>`).join(''); elements.conversationList.querySelectorAll('.list-item').forEach(li => li.addEventListener('click', (e) => { const convo = state.conversations.find(c => c._id === e.currentTarget.dataset.convoId); selectConversation(convo); })); }
+    function selectConversation(convo) { state.currentConversation = convo; renderConversationList(); renderChatWindow(); }
+    function renderChatWindow() { if (!state.currentConversation) { elements.chatHeaderTitle.textContent = '選擇一個對話'; elements.chatWindow.innerHTML = '<p class="placeholder-text">請選擇對話</p>'; return; } elements.chatHeaderTitle.textContent = `與 ${state.currentConversation.username} 的對話`; elements.chatWindow.innerHTML = ''; if (state.currentConversation.messages.length === 0) { elements.chatWindow.innerHTML = '<p class="placeholder-text">尚無訊息</p>'; return; } state.currentConversation.messages.forEach(msg => { const group = document.createElement('div'); group.className = 'message-group'; const answerHTML = msg.staffReply ? `<p><b>您的回覆:</b> ${msg.staffReply}</p>` : (!msg.isStaffMessage ? `<p><b>您的回覆:</b> <i>尚未回覆</i></p><div class="reply-area"><input type="text" class="reply-input" id="reply-input-${msg._id}" placeholder="請在此輸入回覆..."><button class="action-button primary-btn" data-message-id="${msg._id}">送出</button></div>` : ''); group.innerHTML = msg.isStaffMessage ? `<div class="staff-message"><p><b>您 (主動發送):</b> ${msg.customerMessage}</p></div>` : `<div class="customer-question"><p><b>顧客:</b> ${msg.customerMessage}</p></div><div class="staff-answer">${answerHTML}</div>`; elements.chatWindow.appendChild(group); }); elements.chatWindow.onclick = (e) => { if (e.target.dataset.messageId) sendReply(e.target.dataset.messageId); }; elements.chatWindow.querySelectorAll('.reply-input').forEach(input => { input.addEventListener('focus', stopChatFetching); input.addEventListener('blur', startChatFetching); }); }
+    async function sendReply(messageId) { const input = document.getElementById(`reply-input-${messageId}`); if (!input || !input.value.trim() || !state.currentConversation) return; try { const result = await (await fetch(`${API_BASE_URL}/api/admin/reply`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: state.currentConversation.userId, messageId, replyText: input.value.trim() }) })).json(); if (!result.success) throw new Error(result.message); fetchAllConversations(); } catch (error) { alert(`回覆失敗：${error.message}`); } }
+    function initCalendarPanel() { elements.prevMonthBtn.addEventListener('click', () => { state.calendarDate.setMonth(state.calendarDate.getMonth() - 1); renderCalendar(); }); elements.nextMonthBtn.addEventListener('click', () => { state.calendarDate.setMonth(state.calendarDate.getMonth() + 1); renderCalendar(); }); fetchEventsAndRenderCalendar(); }
+    async function fetchEventsAndRenderCalendar() { try { state.calendarEvents = await (await fetch(`${API_BASE_URL}/api/calendar/events`)).json(); renderCalendar(); if (state.selectedDate) handleDayClick(state.selectedDate); else { elements.detailHeader.textContent = `請選擇日期`; elements.detailContent.innerHTML = ''; } } catch (error) { console.error("獲取日曆失敗:", error); elements.detailContent.innerHTML = `<p style="color:var(--error-color);">載入失敗</p>`; } }
+    function renderCalendar() { elements.calendarGrid.innerHTML = ''; const year = state.calendarDate.getFullYear(); const month = state.calendarDate.getMonth(); elements.currentMonthYear.textContent = `${year}年 ${month + 1}月`; const firstDay = new Date(year, month, 1).getDay(); const daysInMonth = new Date(year, month + 1, 0).getDate(); for (let i = 0; i < firstDay; i++) { elements.calendarGrid.innerHTML += `<div class="calendar-day"></div>`; } for (let i = 1; i <= daysInMonth; i++) { const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`; const dayEl = document.createElement('div'); dayEl.className = 'calendar-day'; dayEl.dataset.date = dateStr; dayEl.innerHTML = `<span class="day-number">${i}</span>`; if (state.calendarEvents[dateStr]?.length > 0) { dayEl.innerHTML += `<div class="event-indicator"></div>`; } if (dateStr === state.selectedDate) dayEl.classList.add('selected'); dayEl.addEventListener('click', () => handleDayClick(dateStr)); elements.calendarGrid.appendChild(dayEl); } }
+    function handleDayClick(dateStr) { state.selectedDate = dateStr; renderCalendar(); elements.detailHeader.textContent = `編輯 ${dateStr} 的活動`; renderEventDetailPanel(); }
+    function renderEventDetailPanel() { const events = state.calendarEvents[state.selectedDate] || []; let html = `<div id="event-list-container">${events.map(event => `<div class="event-card" data-event-id="${event._id}"><div class="event-card-header"><h4>${event.vendorName}</h4><div><button class="action-button secondary-btn view-orders-btn">查看訂單</button><button class="action-button secondary-btn edit-event-btn">編輯</button><button class="action-button danger-btn delete-event-btn">刪除</button></div></div><div class="event-card-body"><p>截止: ${new Date(event.deadline).toLocaleString()}</p><p>訂單數: ${event.orders.length}</p></div><div class="event-order-details"><ul>${event.orders.map(o => `<li><b>${o.username}:</b> ${o.orderText}</li>`).join('') || '<li>尚無訂單</li>'}</ul></div></div>`).join('') || '<p>本日無活動。</p>'}</div><hr style="margin:2rem 0;border-color:var(--border-color)"><button id="add-new-event-btn" class="action-button primary-btn">新增本日活動</button>`; elements.detailContent.innerHTML = html; document.getElementById('add-new-event-btn').addEventListener('click', () => renderEventForm(null)); elements.detailContent.querySelectorAll('.edit-event-btn, .delete-event-btn, .view-orders-btn').forEach(btn => { const card = btn.closest('.event-card'); const eventId = card.dataset.eventId; const event = findEventById(eventId); if (btn.classList.contains('edit-event-btn')) btn.addEventListener('click', () => renderEventForm(event)); if (btn.classList.contains('delete-event-btn')) btn.addEventListener('click', () => deleteEvent(eventId)); if (btn.classList.contains('view-orders-btn')) btn.addEventListener('click', () => card.querySelector('.event-order-details').style.display = card.querySelector('.event-order-details').style.display === 'block' ? 'none' : 'block'); }); }
+    function findEventById(id) { for (const date in state.calendarEvents) { const event = state.calendarEvents[date].find(e => e._id === id); if (event) return event; } return null; }
+    async function deleteEvent(id) { if (!confirm("確定刪除此活動嗎？")) return; try { const result = await (await fetch(`${API_BASE_URL}/api/admin/calendar/event/${id}`, { method: 'DELETE' })).json(); if (!result.success) throw new Error(result.message); alert("活動已刪除"); fetchEventsAndRenderCalendar(); } catch (e) { alert(`刪除失敗: ${e.message}`); } }
+    function renderEventForm(event) { const isEditing = event !== null; const deadline = isEditing ? new Date(event.deadline).toISOString().substring(0, 16) : ''; const html = `<h3>${isEditing?'編輯':'新增'}活動</h3><form id="event-form"><div class="form-group"><label>店家名稱</label><input type="text" name="vendorName" value="${event?.vendorName||''}" required></div><div class="form-group"><label>截止時間</label><input type="datetime-local" name="deadline" value="${deadline}" required></div><div class="form-group"><label>文字菜單(選填)</label><textarea name="menuText">${event?.menuText||''}</textarea></div><div class="form-group"><label>圖片菜單(選填)</label><input type="file" name="menuImage" accept="image/*">${isEditing&&event.menuImageURL?`<p style="font-size:0.9rem;color:var(--text-secondary-color);">目前圖片: <a href="${event.menuImageURL}" target="_blank" style="color:var(--info-color);">查看</a> (上傳將覆蓋)</p>`:''}</div><div style="display:flex;gap:1rem;"><button type="submit" class="action-button primary-btn">${isEditing?'更新':'建立'}</button><button type="button" id="cancel-edit-btn" class="action-button secondary-btn">取消</button></div></form>`; elements.detailContent.innerHTML = html; document.getElementById('cancel-edit-btn').addEventListener('click', renderEventDetailPanel); document.getElementById('event-form').addEventListener('submit', (e) => handleEventFormSubmit(e, event)); }
+    async function handleEventFormSubmit(e, event) { e.preventDefault(); const form = e.target; const formData = new FormData(form); formData.append('date', state.selectedDate); const isEditing = event !== null; const url = isEditing ? `${API_BASE_URL}/api/admin/calendar/event/${event._id}` : `${API_BASE_URL}/api/admin/calendar/event`; const method = isEditing ? 'PUT' : 'POST'; try { const result = await (await fetch(url, { method, body: formData })).json(); if (!result.success) throw new Error(result.message); alert(`活動已${isEditing?'更新':'建立'}`); fetchEventsAndRenderCalendar(); } catch (err) { alert(`錯誤: ${err.message}`); } }
+    function initToolsPanel() { elements.sendBroadcastBtn.addEventListener('click', handleBroadcast); }
+    async function handleBroadcast() { const message = elements.broadcastMessageInput.value.trim(); if (!message || !confirm("確定群發此訊息嗎？")) return; try { const result = await (await fetch(`${API_BASE_URL}/api/admin/message/broadcast`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message }) })).json(); if (!result.success) throw new Error(result.message); alert("公告已發送"); elements.broadcastMessageInput.value = ''; } catch (e) { alert(`失敗: ${e.message}`); } }
+    function initMessageModal() { elements.messageModal.closeBtn.addEventListener('click', closeMessageModal); elements.messageModal.overlay.addEventListener('click', (e) => { if (e.target === elements.messageModal.overlay) closeMessageModal(); }); }
+    function openMessageModal(user) { elements.messageModal.title.textContent = `傳送訊息給 ${user.username}`; elements.messageModal.sendBtn.onclick = () => sendIndividualMessage(user.userId || user._id); elements.messageModal.overlay.style.display = 'flex'; }
+    function closeMessageModal() { elements.messageModal.textarea.value = ''; elements.messageModal.overlay.style.display = 'none'; }
+    async function sendIndividualMessage(userId) { const message = elements.messageModal.textarea.value.trim(); if (!message) { alert("訊息不能為空"); return; } try { const result = await (await fetch(`${API_BASE_URL}/api/admin/message/send`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId, message }) })).json(); if (!result.success) throw new Error(result.message); alert("訊息已傳送"); closeMessageModal(); } catch (e) { alert(`傳送失敗: ${e.message}`); } }
+    init();
+});
 </script>
 </body>
 </html>

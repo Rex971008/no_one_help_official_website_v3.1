@@ -1,21 +1,11 @@
-/* 檔案: script.js (v6.3 - 完整功能修復版) */
+/* 檔案: script.js (v6.4 - 錯誤修正與功能還原版) */
 
 document.addEventListener('DOMContentLoaded', () => {
     // ================== 全局變數 & API 設定 ==================
     const API_BASE_URL = 'https://no-one-help-official-website-v3-1.onrender.com';
-    
-    // --- 應用程式狀態管理 ---
     let state = {
-        isLoggedIn: false,
-        token: null,
-        user: { // { username, balance }
-            username: null,
-            balance: null,
-        },
-        chatInterval: null,
-        currentDate: new Date(),
-        calendarEvents: {}, // {'YYYY-MM-DD': [event1, event2, ...]}
-        lastMessageCount: 0, // 用於新訊息通知
+        isLoggedIn: false, token: null, user: { username: null, balance: null },
+        chatInterval: null, currentDate: new Date(), calendarEvents: {}, lastMessageCount: 0,
     };
 
     // --- DOM 元素快取 ---
@@ -23,7 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
         body: document.body,
         hamburgerButton: document.querySelector('.hamburger-menu'),
         sidebar: document.querySelector('.sidebar'),
-        pageWrapper: document.querySelector('.page-wrapper'), // v6.3: 新增
+        sidebarOverlay: document.querySelector('.sidebar-overlay'), // 恢復遮罩
         sidebarLinks: document.querySelectorAll('.sidebar-nav a.sidebar-link'),
         sidebarDefaultHeader: document.getElementById('sidebar-default-header'),
         userInfoBar: document.getElementById('user-info-bar'),
@@ -32,7 +22,8 @@ document.addEventListener('DOMContentLoaded', () => {
         pages: document.querySelectorAll('.page-content'),
         heroBackground: document.querySelector('.hero-background'),
         menuBackgroundContainer: document.getElementById('dynamic-bg-container'),
-        // 登入/註冊
+        vendorGrid: document.getElementById('vendor-grid'),
+        vendorSearch: document.getElementById('vendor-search'),
         loginUsernameInput: document.getElementById('login-username'),
         loginPasswordInput: document.getElementById('login-password'),
         loginBtn: document.getElementById('login-btn'),
@@ -41,19 +32,16 @@ document.addEventListener('DOMContentLoaded', () => {
         registerPasswordInput: document.getElementById('register-password'),
         registerBtn: document.getElementById('register-btn'),
         goToLoginLink: document.getElementById('go-to-login'),
-        // 客服
         chatBox: document.getElementById('chatBox'),
         messageInput: document.getElementById('messageInput'),
         sendButton: document.getElementById('sendButton'),
         logoutBtn: document.getElementById('logout-btn'),
-        // 月曆
         calendarContainer: document.querySelector('#page-calendar .calendar-container'),
         calendarGrid: document.getElementById('calendar-grid'),
         currentMonthYearEl: document.getElementById('current-month-year'),
         prevMonthBtn: document.getElementById('prev-month-btn'),
         nextMonthBtn: document.getElementById('next-month-btn'),
         calendarDetailView: document.getElementById('calendar-detail-view'),
-        // 彈出視窗 (Modals)
         vendorModal: document.getElementById('vendor-modal'),
         changePasswordModal: document.getElementById('change-password-modal'),
         transactionsModal: document.getElementById('transactions-modal'),
@@ -65,479 +53,57 @@ document.addEventListener('DOMContentLoaded', () => {
         transactionModalBody: document.getElementById('transaction-modal-body'),
     };
     
-    // ================== 狀態與認證管理 (Auth) ==================
     const Auth = {
-        init() {
-            state.token = localStorage.getItem('authToken');
-            const user = localStorage.getItem('userInfo');
-            if (state.token && user) {
-                state.isLoggedIn = true;
-                state.user = JSON.parse(user);
-            }
-        },
-        save(token, user) {
-            localStorage.setItem('authToken', token);
-            localStorage.setItem('userInfo', JSON.stringify(user));
-            state.token = token;
-            state.user = user;
-            state.isLoggedIn = true;
-        },
-        clear() {
-            localStorage.removeItem('authToken');
-            localStorage.removeItem('userInfo');
-            state.token = null;
-            state.user = { username: null, balance: null };
-            state.isLoggedIn = false;
-        },
+        init() { const token = localStorage.getItem('authToken'); const user = localStorage.getItem('userInfo'); if (token && user) { state.isLoggedIn = true; state.token = token; state.user = JSON.parse(user); } },
+        save(token, user) { localStorage.setItem('authToken', token); localStorage.setItem('userInfo', JSON.stringify(user)); state.token = token; state.user = user; state.isLoggedIn = true; },
+        clear() { localStorage.removeItem('authToken'); localStorage.removeItem('userInfo'); state.token = null; state.user = { username: null, balance: null }; state.isLoggedIn = false; },
     };
 
-    // ================== 核心：頁面切換與 UI 更新 ==================
-    async function switchPage(targetId) {
-        if (targetId === 'page-customer-service' && !state.isLoggedIn) {
-            targetId = 'page-login';
-        }
-        
-        const targetPage = document.getElementById(targetId);
-        if (!targetPage) return;
+    async function switchPage(targetId) { if (targetId === 'page-customer-service' && !state.isLoggedIn) { targetId = 'page-login'; } const targetPage = document.getElementById(targetId); if (!targetPage) return; clearInterval(state.chatInterval); if (elements.heroBackground) elements.heroBackground.style.display = (targetId === 'page-home') ? 'block' : 'none'; if (elements.menuBackgroundContainer) elements.menuBackgroundContainer.style.display = 'none'; elements.pages.forEach(p => p.classList.remove('page-active')); targetPage.classList.add('page-active'); elements.sidebarLinks.forEach(l => l.classList.toggle('active-link', l.dataset.target === targetId || (['page-login', 'page-register'].includes(targetId) && l.dataset.target === 'page-customer-service'))); window.scrollTo(0, 0); if (targetId === 'page-menu') initDynamicBackground(); if (targetId === 'page-customer-service') startChatSession(); if (targetId === 'page-calendar') await fetchCalendarEvents(); }
+    function updateUserInfoBar() { if (state.isLoggedIn) { elements.userInfoUsername.textContent = state.user.username; elements.userInfoBalance.textContent = `$${state.user.balance}`; elements.sidebarDefaultHeader.style.display = 'none'; elements.userInfoBar.style.display = 'block'; } else { elements.sidebarDefaultHeader.style.display = 'block'; elements.userInfoBar.style.display = 'none'; } }
+    function toggleSidebar() { elements.body.classList.toggle('sidebar-open'); }
 
-        clearInterval(state.chatInterval);
-        if (elements.heroBackground) elements.heroBackground.style.display = (targetId === 'page-home') ? 'block' : 'none';
-        
-        elements.pages.forEach(p => p.classList.remove('page-active'));
-        targetPage.classList.add('page-active');
-
-        elements.sidebarLinks.forEach(l => {
-            l.classList.toggle('active-link', l.dataset.target === targetId || (['page-login', 'page-register'].includes(targetId) && l.dataset.target === 'page-customer-service'));
-        });
-        
-        window.scrollTo(0, 0);
-
-        if (targetId === 'page-menu') initDynamicBackground();
-        if (targetId === 'page-customer-service') startChatSession();
-        if (targetId === 'page-calendar') await fetchCalendarEvents();
-    }
-    
-    function updateUserInfoBar() {
-        if(state.isLoggedIn){
-            elements.userInfoUsername.textContent = state.user.username;
-            elements.userInfoBalance.textContent = `$${state.user.balance}`;
-            elements.sidebarDefaultHeader.style.display = 'none';
-            elements.userInfoBar.style.display = 'block';
-        } else {
-             elements.sidebarDefaultHeader.style.display = 'block';
-             elements.userInfoBar.style.display = 'none';
-        }
-    }
-    
-    function toggleSidebar() {
-        elements.body.classList.toggle('sidebar-open');
-    }
-
-    // ================== 事件綁定 ==================
     function bindEvents() {
         elements.hamburgerButton.addEventListener('click', toggleSidebar);
-        
-        elements.sidebarLinks.forEach(link => {
-            link.addEventListener('click', (e) => {
-                e.preventDefault();
-                switchPage(link.dataset.target);
-                if (elements.body.classList.contains('sidebar-open')) {
-                    toggleSidebar();
-                }
-            });
-        });
-
-        // 登入 & 註冊
+        elements.sidebarOverlay.addEventListener('click', toggleSidebar);
+        elements.sidebarLinks.forEach(link => { link.addEventListener('click', (e) => { e.preventDefault(); switchPage(link.dataset.target); if (elements.body.classList.contains('sidebar-open')) toggleSidebar(); }); });
         elements.goToRegisterLink.addEventListener('click', (e) => { e.preventDefault(); switchPage('page-register'); });
         elements.goToLoginLink.addEventListener('click', (e) => { e.preventDefault(); switchPage('page-login'); });
         elements.registerBtn.addEventListener('click', handleRegister);
         elements.loginBtn.addEventListener('click', handleLogin);
         elements.logoutBtn.addEventListener('click', handleLogout);
-
-        // 使用者資訊 & Modal
         elements.userInfoUsername.addEventListener('click', () => openModal('change-password-modal'));
         elements.userInfoBalance.addEventListener('click', fetchAndShowTransactions);
         elements.changePasswordForm.addEventListener('submit', handleChangePassword);
-
-        // 客服
         elements.sendButton.addEventListener('click', sendChatMessage);
         elements.messageInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); sendChatMessage(); } });
-
-        // 月曆
         elements.prevMonthBtn.addEventListener('click', () => { state.currentDate.setMonth(state.currentDate.getMonth() - 1); renderCalendar(); });
         elements.nextMonthBtn.addEventListener('click', () => { state.currentDate.setMonth(state.currentDate.getMonth() + 1); renderCalendar(); });
-
-        // 通用 Modal 關閉
-        document.querySelectorAll('.modal-overlay').forEach(modal => {
-            modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(modal.id); });
-        });
-        document.querySelectorAll('.modal-close-btn').forEach(btn => {
-            btn.addEventListener('click', () => closeModal(btn.closest('.modal-overlay').id));
-        });
-    }
-
-    // ================== 功能性函數 ==================
-    
-    // --- 認證流程 ---
-    async function handleRegister() {
-        const username = elements.registerUsernameInput.value.trim();
-        const password = elements.registerPasswordInput.value.trim();
-        if (!username || !password) return alert('用戶名和密碼不能為空！');
-        try {
-            const response = await fetch(`${API_BASE_URL}/api/auth/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) });
-            const data = await response.json();
-            if (response.ok) {
-                alert('註冊成功，請登入！');
-                switchPage('page-login');
-            } else {
-                alert(`註冊失敗：${data.message}`);
-            }
-        } catch (error) {
-            alert('註冊請求失敗，請檢查網絡或稍後再試。');
-        }
+        document.querySelectorAll('.modal-overlay').forEach(modal => modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(modal.id); }));
+        document.querySelectorAll('.modal-close-btn').forEach(btn => btn.addEventListener('click', () => closeModal(btn.closest('.modal-overlay').id)));
     }
     
-    async function handleLogin() {
-        const username = elements.loginUsernameInput.value.trim();
-        const password = elements.loginPasswordInput.value.trim();
-        if (!username || !password) return alert('用戶名和密碼不能為空！');
-        try {
-            const response = await fetch(`${API_BASE_URL}/api/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) });
-            const data = await response.json();
-            if (response.ok) {
-                Auth.save(data.token, data.user);
-                updateUserInfoBar();
-                switchPage('page-customer-service');
-            } else {
-                alert(`登入失敗：${data.message}`);
-            }
-        } catch (error) {
-            alert('登入請求失敗，請檢查網絡或稍後再試。');
-        }
-    }
-    
-    function handleLogout() {
-        Auth.clear();
-        updateUserInfoBar();
-        stopChatSession();
-        switchPage('page-home');
-        alert('您已成功登出。');
-    }
-    
-    // --- 使用者帳戶流程 ---
-    async function handleChangePassword(e) {
-        e.preventDefault();
-        const oldPassword = elements.oldPasswordInput.value;
-        const newPassword = elements.newPasswordInput.value;
-        const confirmPassword = elements.confirmPasswordInput.value;
-        
-        if (newPassword !== confirmPassword) {
-            elements.passwordErrorMsg.textContent = '新密碼與確認密碼不相符！';
-            return;
-        }
-        elements.passwordErrorMsg.textContent = '';
-        
-        try {
-            const response = await fetch(`${API_BASE_URL}/api/user/change-password`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': state.token },
-                body: JSON.stringify({ oldPassword, newPassword })
-            });
-            const result = await response.json();
-            if (result.success) {
-                alert("密碼修改成功！");
-                closeModal('change-password-modal');
-                elements.changePasswordForm.reset();
-            } else {
-                elements.passwordErrorMsg.textContent = `修改失敗: ${result.message}`;
-            }
-        } catch(error) {
-            elements.passwordErrorMsg.textContent = `網路錯誤，請稍後再試`;
-        }
-    }
-
-    async function fetchAndShowTransactions() {
-        try {
-            const result = await (await fetch(`${API_BASE_URL}/api/user/transactions`, {
-                 headers: { 'Authorization': state.token }
-            })).json();
-            if (result.success) {
-                renderTransactions(result.transactions);
-                openModal('transactions-modal');
-            } else {
-                alert("無法獲取交易紀錄");
-            }
-        } catch (error) {
-             alert("網路錯誤，無法獲取交易紀錄");
-        }
-    }
-
-    function renderTransactions(transactions) {
-        let tableHtml = `
-            <table>
-                <thead>
-                    <tr><th>日期</th><th>事由</th><th>金額變動</th><th>帳戶餘額</th></tr>
-                </thead>
-                <tbody>
-        `;
-        transactions.slice().reverse().forEach(t => {
-            const amountClass = t.amount >= 0 ? 'amount-positive' : 'amount-negative';
-            const amountSign = t.amount > 0 ? '+' : '';
-            tableHtml += `
-                <tr>
-                    <td>${new Date(t.date).toLocaleDateString()}</td>
-                    <td>${t.description}</td>
-                    <td class="${amountClass}">${amountSign}${t.amount}</td>
-                    <td>$${t.resultingBalance}</td>
-                </tr>
-            `;
-        });
-        tableHtml += `</tbody></table>`;
-        elements.transactionModalBody.innerHTML = tableHtml;
-    }
-
-    // --- 客服 & 通知系統 ---
-    function startChatSession() {
-        if (state.chatInterval) clearInterval(state.chatInterval);
-        fetchChatMessages();
-        state.chatInterval = setInterval(fetchChatMessages, 5000);
-    }
-    
-    function stopChatSession() {
-        clearInterval(state.chatInterval);
-    }
-
-    async function fetchChatMessages() {
-        if (!state.token || !elements.chatBox) return;
-        try {
-            const messages = await (await fetch(`${API_BASE_URL}/api/messages`, { headers: { 'Authorization': state.token } })).json();
-            if(state.isLoggedIn && messages.length > 0 && messages.length > state.lastMessageCount && state.lastMessageCount !== 0) {
-                 const latestMessage = messages[messages.length - 1];
-                 const body = latestMessage.staffReply || latestMessage.customerMessage;
-                 const title = latestMessage.isStaffMessage ? "您有來自客服的新訊息！" : "您有一則新訊息";
-                 showNotification(title, body);
-            }
-            state.lastMessageCount = messages.length;
-
-            const shouldScroll = elements.chatBox.scrollTop + elements.chatBox.clientHeight >= elements.chatBox.scrollHeight - 50;
-            elements.chatBox.innerHTML = '';
-            
-            if (messages.length === 0) {
-                elements.chatBox.innerHTML = '<p style="text-align:center; color: var(--text-secondary-color);">目前沒有對話紀錄。</p>';
-            } else {
-                messages.forEach(msg => {
-                    if(msg.isStaffMessage){
-                        const staffDiv = document.createElement('div');
-                        staffDiv.className = 'chat-message staff-init-msg';
-                        staffDiv.innerHTML = `<span class="staff-name-prefix">客服公告:</span> ${msg.customerMessage}`;
-                        elements.chatBox.appendChild(staffDiv);
-                    } else {
-                        const customerDiv = document.createElement('div');
-                        customerDiv.className = 'chat-message customer-msg';
-                        customerDiv.textContent = msg.customerMessage;
-                        elements.chatBox.appendChild(customerDiv);
-
-                        if (msg.staffReply) {
-                            const staffDiv = document.createElement('div');
-                            staffDiv.className = 'chat-message staff-reply';
-                            staffDiv.innerHTML = `<span class="staff-name-prefix">客服:</span> ${msg.staffReply}`;
-                            elements.chatBox.appendChild(staffDiv);
-                        }
-                    }
-                });
-            }
-            if (shouldScroll) elements.chatBox.scrollTop = elements.chatBox.scrollHeight;
-        } catch (error) {
-            console.error("獲取聊天訊息失敗:", error);
-            elements.chatBox.innerHTML = '<p style="text-align:center; color: #ff5252;">無法連接客服中心。</p>';
-            stopChatSession();
-        }
-    }
-    
-    async function sendChatMessage() {
-        const message = elements.messageInput.value.trim();
-        if (!message || !state.token) return;
-        try {
-            await fetch(`${API_BASE_URL}/api/message`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': state.token }, body: JSON.stringify({ message }) });
-            elements.messageInput.value = '';
-            fetchChatMessages();
-        } catch (error) {
-            console.error('訊息發送失敗:', error);
-        }
-    }
-
-    function initNotifications() {
-        if ('Notification' in window && Notification.permission !== 'denied') {
-            Notification.requestPermission();
-        }
-    }
-
-    function showNotification(title, body) {
-         if (!('Notification' in window)) return;
-        if (Notification.permission === 'granted') {
-            new Notification(title, { body: body, icon: '/favicon.ico' });
-        }
-    }
-
-    // --- 點餐月曆系統 ---
-    async function fetchCalendarEvents() {
-        try {
-            state.calendarEvents = await(await fetch(`${API_BASE_URL}/api/calendar/events`)).json();
-            renderCalendar();
-            renderEventDetails(null);
-        } catch (error) {
-            console.error(error);
-            elements.calendarContainer.innerHTML = `<p>無法載入點餐活動。</p>`;
-        }
-    }
-
-    function renderCalendar() {
-        if (!elements.calendarGrid || !elements.currentMonthYearEl) return;
-        const year = state.currentDate.getFullYear();
-        const month = state.currentDate.getMonth();
-        elements.currentMonthYearEl.textContent = `${year}年 ${month + 1}月`;
-        elements.calendarGrid.innerHTML = '';
-        
-        const firstDayOfMonth = new Date(year, month, 1).getDay();
-        const daysInMonth = new Date(year, month + 1, 0).getDate();
-        
-        for (let i = 0; i < firstDayOfMonth; i++) {
-            elements.calendarGrid.innerHTML += `<div class="calendar-day not-current-month"></div>`;
-        }
-
-        for (let i = 1; i <= daysInMonth; i++) {
-            const dayElement = document.createElement('div');
-            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
-            dayElement.className = 'calendar-day active-day';
-            dayElement.textContent = i;
-            dayElement.dataset.date = dateStr;
-            
-            const eventsForDay = state.calendarEvents[dateStr] || [];
-            if (eventsForDay.length > 0) {
-                dayElement.classList.add('has-event');
-            }
-            
-            const today = new Date();
-            if(year === today.getFullYear() && month === today.getMonth() && i === today.getDate()){
-                 dayElement.classList.add('today');
-            }
-            
-            dayElement.addEventListener('click', () => renderEventDetails(dateStr));
-            elements.calendarGrid.appendChild(dayElement);
-        }
-    }
-
-    function renderEventDetails(dateStr) {
-        document.querySelectorAll('.calendar-day').forEach(d => d.classList.remove('selected'));
-        if (dateStr) {
-            const selectedDayEl = document.querySelector(`.calendar-day[data-date="${dateStr}"]`);
-            if(selectedDayEl) selectedDayEl.classList.add('selected');
-        }
-
-        const events = dateStr ? state.calendarEvents[dateStr] || [] : [];
-        let html = '';
-
-        if (!dateStr || events.length === 0) {
-            html = `<h3>${dateStr ? '本日無點餐活動' : '請選擇日期'}</h3><p style="color: var(--text-secondary-color);">請選擇其他有標示的日期查看活動。</p>`;
-        } else {
-            html += `<h3>${dateStr} 的活動列表</h3>`;
-            html += `<div class="detail-event-list">`;
-            
-            events.forEach(event => {
-                const isClosed = event.isClosed || new Date() > new Date(event.deadline);
-                const existingOrder = state.isLoggedIn ? event.orders.find(o => o.userId === state.token) : undefined;
-                html += `
-                    <div class="detail-event-card" id="event-${event._id}">
-                        <h3>${event.vendorName}</h3>
-                        <p>截止時間: ${new Date(event.deadline).toLocaleString()} ${isClosed ? '(已截止)' : ''}</p>
-                        
-                        <button class="auth-btn" style="width: auto; padding: 0.5rem 1rem;" onclick="toggleMenuAndOrder('${event._id}')">查看菜單 & 點餐</button>
-                        
-                        <div id="content-toggle-${event._id}" style="display:none; margin-top: 1rem;">
-                            ${(event.menuImageURL || event.menuText) ? `<h4>菜單資訊</h4>` : ''}
-                            ${event.menuImageURL ? `<a href="${event.menuImageURL}" target="_blank"><img src="${event.menuImageURL}" alt="菜單" class="detail-menu-image"></a>` : ''}
-                            ${event.menuText ? `<div class="modal-placeholder" style="margin-top: 1rem;">${event.menuText.replace(/\n/g, '<br>')}</div>` : ''}
-                            
-                            ${getOrderSectionHtml(event, isClosed, existingOrder)}
-                        </div>
-                    </div>
-                `;
-            });
-            html += `</div>`;
-        }
-        elements.calendarDetailView.innerHTML = html;
-    }
-    
-    window.toggleMenuAndOrder = function(eventId) {
-        const content = document.getElementById(`content-toggle-${eventId}`);
-        if(content) {
-            content.style.display = content.style.display === 'none' ? 'block' : 'none';
-        }
-    }
-
-    function getOrderSectionHtml(event, isClosed, existingOrder) {
-         if (!state.isLoggedIn) {
-            return `<div class="order-submission-area"><p class="order-status">請先<a href="#" onclick="switchPageWrapper('page-login')">登入</a>以進行點餐。</p></div>`;
-        }
-        if (isClosed && !existingOrder) {
-            return `<div class="order-submission-area"><p class="order-status">此活動點餐已截止。</p></div>`;
-        }
-        
-        const orderText = existingOrder ? existingOrder.orderText : "";
-        const buttonText = isClosed ? "已截止 (僅能查看)" : "送出/更新訂單";
-        
-        return `
-            <div class="order-submission-area">
-                <h4>${existingOrder ? '您的訂單' : '請輸入您的訂單'}</h4>
-                <p>${isClosed ? `訂單內容` : (existingOrder ? `上次更新: ${new Date(existingOrder.timestamp).toLocaleTimeString()}` : '若要取消訂單，請將內容清空後送出')}</p>
-                <textarea id="order-textarea-${event._id}" class="order-textarea" placeholder="範例：招牌鍋貼一份，豆漿一杯" ${isClosed ? 'disabled' : ''}>${orderText}</textarea>
-                <button onclick="handleOrderSubmit('${event._id}')" class="auth-btn" ${isClosed ? 'disabled' : ''}>${buttonText}</button>
-            </div>
-        `;
-    }
-    
-    window.switchPageWrapper = function(page) {
-        switchPage(page);
-    }
-    
-    window.handleOrderSubmit = async function(eventId) {
-        if (!state.isLoggedIn) return alert("請先登入！");
-        const textarea = document.getElementById(`order-textarea-${eventId}`);
-        try {
-            const result = await (await fetch(`${API_BASE_URL}/api/calendar/order`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': state.token },
-                body: JSON.stringify({ eventId: eventId, orderText: textarea.value })
-            })).json();
-            if(!result.success) throw new Error(result.message);
-
-            alert(result.message);
-            await fetchCalendarEvents();
-        } catch(error) {
-            alert(`訂餐失敗：${error.message}`);
-        }
-    }
-    
-    // --- 其他 UI 函數 ---
-    function openModal(modalId) {
-        const modal = document.getElementById(modalId);
-        if (modal) {
-            modal.classList.add('active');
-            elements.body.classList.add('modal-open');
-        }
-    }
-
-    function closeModal(modalId) {
-        const modal = document.getElementById(modalId);
-        if (modal) {
-            modal.classList.remove('active');
-            elements.body.classList.remove('modal-open');
-            if(modalId === 'change-password-modal'){
-                elements.changePasswordForm.reset();
-                elements.passwordErrorMsg.textContent = '';
-            }
-        }
-    }
+    async function handleRegister() { const u = elements.registerUsernameInput.value.trim(); const p = elements.registerPasswordInput.value.trim(); if (!u||!p) return alert('不能為空！'); try { const res = await fetch(`${API_BASE_URL}/api/auth/register`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})}); const data=await res.json(); if(res.ok){alert('註冊成功');switchPage('page-login');}else{alert(`失敗：${data.message}`);} } catch (e) { alert('請求失敗'); } }
+    async function handleLogin() { const u = elements.loginUsernameInput.value.trim(); const p = elements.loginPasswordInput.value.trim(); if (!u||!p) return alert('不能為空！'); try { const res = await fetch(`${API_BASE_URL}/api/auth/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})}); const data=await res.json(); if(res.ok){Auth.save(data.token,data.user);updateUserInfoBar();switchPage('page-customer-service');}else{alert(`失敗：${data.message}`);} } catch (e) { alert('請求失敗'); } }
+    function handleLogout() { Auth.clear(); updateUserInfoBar(); stopChatSession(); switchPage('page-home'); alert('已登出'); }
+    async function handleChangePassword(e) { e.preventDefault(); const op=elements.oldPasswordInput.value, np=elements.newPasswordInput.value, cp=elements.confirmPasswordInput.value; if(np!==cp){elements.passwordErrorMsg.textContent='新密碼不相符';return;} elements.passwordErrorMsg.textContent=''; try { const res=await fetch(`${API_BASE_URL}/api/user/change-password`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':state.token},body:JSON.stringify({oldPassword:op,newPassword:np})}); const result=await res.json(); if(result.success){alert("修改成功");closeModal('change-password-modal');elements.changePasswordForm.reset();}else{elements.passwordErrorMsg.textContent=`失敗: ${result.message}`;}} catch(err){elements.passwordErrorMsg.textContent=`網路錯誤`;}}
+    async function fetchAndShowTransactions() { try { const res = await (await fetch(`${API_BASE_URL}/api/user/transactions`,{headers:{'Authorization':state.token}})).json(); if(res.success){renderTransactions(res.transactions);openModal('transactions-modal');}else{alert("無法獲取紀錄");}} catch(e){alert("網路錯誤");} }
+    function renderTransactions(transactions) { let html=`<table><thead><tr><th>日期</th><th>事由</th><th>金額變動</th><th>帳戶餘額</th></tr></thead><tbody>`; transactions.slice().reverse().forEach(t=>{const c=t.amount>=0?'positive':'negative';const s=t.amount>0?'+':'';html+=`<tr><td>${new Date(t.date).toLocaleDateString()}</td><td>${t.description}</td><td class="amount-${c}">${s}${t.amount}</td><td>$${t.resultingBalance}</td></tr>`;});html+=`</tbody></table>`;elements.transactionModalBody.innerHTML=html;}
+    function startChatSession() { if(state.chatInterval)clearInterval(state.chatInterval); fetchChatMessages(); state.chatInterval = setInterval(fetchChatMessages, 5000); }
+    function stopChatSession() { clearInterval(state.chatInterval); }
+    async function fetchChatMessages() { if(!state.token||!elements.chatBox)return; try { const messages = await (await fetch(`${API_BASE_URL}/api/messages`,{headers:{'Authorization':state.token}})).json(); if(state.isLoggedIn&&messages.length>state.lastMessageCount&&state.lastMessageCount!==0){const lastMsg=messages[messages.length-1];const body=lastMsg.staffReply||lastMsg.customerMessage;const title=lastMsg.isStaffMessage?"來自客服的新訊息":"您有一則新訊息";showNotification(title,body);} state.lastMessageCount=messages.length; const shouldScroll=elements.chatBox.scrollTop+elements.chatBox.clientHeight>=elements.chatBox.scrollHeight-50; elements.chatBox.innerHTML=''; if(messages.length===0){elements.chatBox.innerHTML='<p style="text-align:center;color:var(--text-secondary-color);">無對話紀錄</p>';}else{messages.forEach(msg=>{if(msg.isStaffMessage){const div=document.createElement('div');div.className='chat-message staff-init-msg';div.innerHTML=`<span class="staff-name-prefix">客服公告:</span> ${msg.customerMessage}`;elements.chatBox.appendChild(div);}else{const customerDiv=document.createElement('div');customerDiv.className='chat-message customer-msg';customerDiv.textContent=msg.customerMessage;elements.chatBox.appendChild(customerDiv);if(msg.staffReply){const staffDiv=document.createElement('div');staffDiv.className='chat-message staff-reply';staffDiv.innerHTML=`<span class="staff-name-prefix">客服:</span> ${msg.staffReply}`;elements.chatBox.appendChild(staffDiv);}}});} if(shouldScroll)elements.chatBox.scrollTop=elements.chatBox.scrollHeight;}catch(e){console.error("獲取訊息失敗:",e);elements.chatBox.innerHTML='<p style="text-align:center;color:red;">無法連接</p>';stopChatSession();}}
+    async function sendChatMessage() { const msg=elements.messageInput.value.trim(); if(!msg||!state.token)return; try{await fetch(`${API_BASE_URL}/api/message`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':state.token},body:JSON.stringify({message:msg})});elements.messageInput.value='';fetchChatMessages();}catch(e){console.error('發送失敗:',e);} }
+    function initNotifications() { if('Notification' in window && Notification.permission !== 'denied') Notification.requestPermission(); }
+    function showNotification(title, body) { if('Notification' in window && Notification.permission === 'granted') new Notification(title,{body:body,icon:'/favicon.ico'}); }
+    async function fetchCalendarEvents() { try { state.calendarEvents = await(await fetch(`${API_BASE_URL}/api/calendar/events`)).json(); renderCalendar(); renderEventDetails(null); } catch (e) { console.error(e); elements.calendarContainer.innerHTML=`<p>載入失敗</p>`; } }
+    function renderCalendar() { if(!elements.calendarGrid||!elements.currentMonthYearEl)return; const year=state.currentDate.getFullYear(); const month=state.currentDate.getMonth(); elements.currentMonthYearEl.textContent=`${year}年 ${month+1}月`; elements.calendarGrid.innerHTML=''; const firstDay=new Date(year,month,1).getDay(); const daysInMonth=new Date(year,month+1,0).getDate(); for(let i=0;i<firstDay;i++){elements.calendarGrid.innerHTML+=`<div class="calendar-day not-current-month"></div>`;} for(let i=1;i<=daysInMonth;i++){const dayEl=document.createElement('div'); const dateStr=`${year}-${String(month+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`; dayEl.className='calendar-day active-day';dayEl.textContent=i;dayEl.dataset.date=dateStr; const eventsForDay=state.calendarEvents[dateStr]||[]; if(eventsForDay.length>0){dayEl.classList.add('has-event');} const today=new Date(); if(year===today.getFullYear()&&month===today.getMonth()&&i===today.getDate()){dayEl.classList.add('today');} dayEl.addEventListener('click',()=>renderEventDetails(dateStr)); elements.calendarGrid.appendChild(dayEl);} }
+    function renderEventDetails(dateStr) { document.querySelectorAll('.calendar-day').forEach(d=>d.classList.remove('selected')); if(dateStr){const el=document.querySelector(`.calendar-day[data-date="${dateStr}"]`); if(el)el.classList.add('selected');} const events=dateStr?state.calendarEvents[dateStr]||[]:[]; let html=''; if(!dateStr||events.length===0){html=`<h3>${dateStr?'本日無活動':'請選擇日期'}</h3><p style="color:var(--text-secondary-color);">請選擇其他有標示的日期</p>`;}else{html=`<h3>${dateStr} 的活動列表</h3><div class="detail-event-list">`; events.forEach(event=>{const isClosed=event.isClosed||new Date()>new Date(event.deadline); const order=state.isLoggedIn?event.orders.find(o=>o.userId===state.token):undefined; html+=`<div class="detail-event-card" id="event-${event._id}"><h3>${event.vendorName}</h3><p>截止: ${new Date(event.deadline).toLocaleString()} ${isClosed?'(已截止)':''}</p><button class="auth-btn" style="width:auto;padding:0.5rem 1rem;" onclick="toggleMenuAndOrder('${event._id}')">查看菜單 & 點餐</button><div id="content-toggle-${event._id}" style="display:none;margin-top:1rem;">${(event.menuImageURL||event.menuText)?'<h4>菜單資訊</h4>':''}${event.menuImageURL?`<a href="${event.menuImageURL}" target="_blank"><img src="${event.menuImageURL}" alt="菜單" class="detail-menu-image"></a>`:''}${event.menuText?`<div class="modal-placeholder" style="margin-top:1rem;">${event.menuText.replace(/\n/g,'<br>')}</div>`:''}${getOrderSectionHtml(event,isClosed,order)}</div></div>`;});html+=`</div>`;} elements.calendarDetailView.innerHTML=html; }
+    window.toggleMenuAndOrder=function(id){const el=document.getElementById(`content-toggle-${id}`); if(el){el.style.display=el.style.display==='none'?'block':'none';}}
+    function getOrderSectionHtml(event,isClosed,order){if(!state.isLoggedIn){return`<div class="order-submission-area"><p class="order-status">請先<a href="#" onclick="switchPageWrapper('page-login')">登入</a></p></div>`;} if(isClosed&&!order){return`<div class="order-submission-area"><p class="order-status">已截止</p></div>`;} const orderText=order?order.orderText:""; const btnText=isClosed?"已截止 (僅能查看)":"送出/更新"; return`<div class="order-submission-area"><h4>${order?'您的訂單':'請輸入訂單'}</h4><p>${isClosed?'訂單內容':(order?`上次更新: ${new Date(order.timestamp).toLocaleTimeString()}`:'清空後送出可取消')}</p><textarea id="order-textarea-${event._id}" class="order-textarea" placeholder="範例：鍋貼一份" ${isClosed?'disabled':''}>${orderText}</textarea><button onclick="handleOrderSubmit('${event._id}')" class="auth-btn" ${isClosed?'disabled':''}>${btnText}</button></div>`;}
+    window.switchPageWrapper=function(page){switchPage(page);}
+    window.handleOrderSubmit=async function(eventId){if(!state.isLoggedIn)return alert("請登入"); const textarea=document.getElementById(`order-textarea-${eventId}`); try{const result=await(await fetch(`${API_BASE_URL}/api/calendar/order`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':state.token},body:JSON.stringify({eventId:eventId,orderText:textarea.value})})).json(); if(!result.success)throw new Error(result.message); alert(result.message); await fetchCalendarEvents();}catch(e){alert(`失敗：${e.message}`);}}
+    function openModal(id){const el=document.getElementById(id); if(el){el.classList.add('active');elements.body.classList.add('modal-open');}}
+    function closeModal(id){const el=document.getElementById(id); if(el){el.classList.remove('active');elements.body.classList.remove('modal-open');if(id==='change-password-modal'){elements.changePasswordForm.reset();elements.passwordErrorMsg.textContent='';}}}
     
     // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
     // ★ 請在此處貼上您【所有】的店家資料陣列 ★
@@ -1728,141 +1294,17 @@ document.addEventListener('DOMContentLoaded', () => {
             { name: "新百齡", phone: "077611199", address: "高雄市鳳山區五甲二路466號", info: "與鳳山高中距離：約 3.4 公里 (開車約 9 分鐘，步行約 40 分鐘)", tags: ["new", "排骨飯"], menu: [] },
         ];
     
-    function setupOfficialWebsiteJS() {
-        const faqItems = document.querySelectorAll('.faq-item');
-        faqItems.forEach(item => {
-            const question = item.querySelector('.faq-question');
-            if (question) {
-                question.addEventListener('click', () => {
-                    item.classList.toggle('active');
-                });
-            }
-        });
-
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    entry.target.classList.add('visible');
-                }
-            });
-        }, {
-            threshold: 0.1
-        });
-
-        const elementsToAnimate = document.querySelectorAll('.animate-on-scroll');
-        elementsToAnimate.forEach(el => observer.observe(el));
-
-        const vipCard = document.querySelector('.membership-card.vip');
-        if (vipCard && !vipCard.querySelector('.membership-content')) {
-            const content = vipCard.innerHTML;
-            vipCard.innerHTML = '';
-            const wrapper = document.createElement('div');
-            wrapper.className = 'membership-content';
-            wrapper.innerHTML = content;
-            vipCard.appendChild(wrapper);
-        }
-
-        if(elements.vendorModal) {
-             const vendorGrid = document.getElementById('vendor-grid');
-             if(vendorGrid){
-                vendorGrid.addEventListener('click', (e) => {
-                    const card = e.target.closest('.vendor-card');
-                    if (card) {
-                        populateAndShowModal(card.dataset.vendorName);
-                    }
-                });
-             }
-        }
-
-        const searchInput = document.getElementById('vendor-search');
-        if (searchInput) {
-            renderVendors();
-            searchInput.addEventListener('input', (e) => renderVendors(e.target.value));
-        }
-    }
-    
+    function setupOfficialWebsiteJS() { const faqItems=document.querySelectorAll('.faq-item'); faqItems.forEach(item=>{const q=item.querySelector('.faq-question'); if(q)q.addEventListener('click',()=>{item.classList.toggle('active');});}); const observer=new IntersectionObserver((entries)=>{entries.forEach(e=>{if(e.isIntersecting)e.target.classList.add('visible');});},{threshold:0.1}); document.querySelectorAll('.animate-on-scroll').forEach(el=>observer.observe(el)); if(elements.vendorGrid)elements.vendorGrid.addEventListener('click',(e)=>{const card=e.target.closest('.vendor-card');if(card)populateAndShowModal(card.dataset.vendorName);}); if(elements.vendorSearch){renderVendors();elements.vendorSearch.addEventListener('input',(e)=>renderVendors(e.target.value));}}
     function renderVendors(filter = '') {
-        const grid = document.getElementById('vendor-grid');
-        if (!grid) return;
-        grid.innerHTML = '';
+        const grid = elements.vendorGrid; if (!grid) return; grid.innerHTML = '';
         const lowerFilter = filter.toLowerCase();
-        
-        const filtered = vendorData.filter(v => {
-            const nameMatch = (v.displayName || v.name).toLowerCase().includes(lowerFilter);
-            const tagMatch = (v.tags || []).some(t => t.toLowerCase().includes(lowerFilter));
-            return nameMatch || tagMatch;
-        });
-
-        if (filtered.length === 0) {
-            grid.innerHTML = `<p style="grid-column: 1 / -1; text-align: center; color: var(--text-secondary-color);">找不到符合條件的店家...</p>`;
-            return;
-        }
-
-        filtered.forEach(v => {
-            const card = document.createElement('div');
-            card.className = 'vendor-card';
-            card.dataset.vendorName = v.name;
-            let tagsHTML = (v.tags || []).map(tag => {
-                 let className = 'vendor-tag';
-                 let tagText = tag;
-                 if(tag.startsWith('new')) { className += ' new'; tagText = '新店家'; }
-                 else if (tag.startsWith('closed:')) { className += ' closed'; tagText = tag.replace('closed:',''); }
-                 return `<span class="${className}">${tagText}</span>`
-            }).join('');
-            card.innerHTML = `<div class="vendor-info-content"><h3 class="vendor-name">${v.displayName || v.name}</h3><div class="vendor-tags">${tagsHTML}</div></div><div class="vendor-action-text">點擊查看菜單</div>`;
-            grid.appendChild(card);
-        });
+        const filtered = vendorData.filter(v => ((v.displayName || v.name).toLowerCase().includes(lowerFilter) || (v.tags || []).some(t => t.toLowerCase().includes(lowerFilter))));
+        if (filtered.length === 0) { grid.innerHTML = `<p style="grid-column: 1 / -1; text-align: center; color: var(--text-secondary-color);">找不到店家</p>`; return; }
+        filtered.forEach(vendor => { const card = document.createElement('div'); card.className = 'vendor-card'; card.dataset.vendorName = vendor.name; let tagsHTML = (vendor.tags || []).map(tag => { let className = 'vendor-tag'; let tagText = tag; if (tag.startsWith('new')) { className += ' new'; tagText = '新店家'; } else if (tag.startsWith('closed:')) { className += ' closed'; tagText = tag.replace('closed:', ''); } return `<span class="${className}">${tagText}</span>`; }).join(''); card.innerHTML = `<div class="vendor-card-content" style="padding:1.5rem; flex-grow:1;"><h3 class="vendor-name">${vendor.displayName || vendor.name}</h3><div class="vendor-tags" style="margin-top:0.5rem;">${tagsHTML}</div></div><div class="vendor-action-text" style="writing-mode:vertical-rl;padding:1rem 0.75rem;border-left:1px solid var(--border-color);color:var(--text-secondary-color);transition:color .3s;">點擊查看</div>`; grid.appendChild(card); });
     }
-
-    function populateAndShowModal(vendorName) {
-        const vendor = vendorData.find(v => v.name === vendorName);
-        if (!vendor || !elements.vendorModal) return;
-        
-        elements.vendorModal.querySelector('#modal-vendor-name').textContent = vendor.displayName || vendor.name;
-        // ... (這部分很長且未變動，此處僅為範例，實際代碼中是完整的)
-        
-        openModal('vendor-modal');
-    }
-
-    function initDynamicBackground() {
-        if (!elements.menuBackgroundContainer) return;
-        if(elements.menuBackgroundContainer.childElementCount > 0) {
-            if(elements.menuBackgroundContainer.style.display !== 'block') elements.menuBackgroundContainer.style.display = 'block';
-            return;
-        }
-
-        const images = [ 'https://images.unsplash.com/photo-1512152272829-e3139592d56f?q=80&w=2940&auto=format&fit=crop', 'https://images.unsplash.com/photo-1552611052-33e04de081de?q=80&w=2864&auto=format&fit=crop' ];
-        images.forEach(src => {
-            const div = document.createElement('div');
-            div.className = 'bg-image';
-            div.style.backgroundImage = `url(${src})`;
-            elements.menuBackgroundContainer.appendChild(div);
-        });
-        
-        elements.menuBackgroundContainer.style.display = 'block';
-        let currentIndex = 0;
-        
-        const changeBg = () => {
-            if(document.getElementById('page-menu').classList.contains('page-active')) {
-                const bgImages = elements.menuBackgroundContainer.querySelectorAll('.bg-image');
-                bgImages.forEach(img => img.classList.remove('active'));
-                bgImages[currentIndex].classList.add('active');
-                currentIndex = (currentIndex + 1) % bgImages.length;
-            }
-        };
-        changeBg();
-        setInterval(changeBg, 7000);
-    }
+    function populateAndShowModal(vendorName) { const vendor = vendorData.find(v => v.name === vendorName); if (!vendor || !elements.vendorModal) return; elements.vendorModal.querySelector('#modal-vendor-name').textContent = vendor.displayName || vendor.name; const phoneLink = elements.vendorModal.querySelector('#modal-vendor-phone'); if (vendor.phone && vendor.phone !== "無") { phoneLink.href = `tel:${vendor.phone}`; phoneLink.style.display = 'inline-flex'; elements.vendorModal.querySelector('#modal-vendor-phone-text').textContent = vendor.phone; } else { phoneLink.style.display = 'none'; } elements.vendorModal.querySelector('#modal-vendor-map').href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(vendor.address || '高雄 ' + (vendor.displayName || vendor.name))}`; const tagsContainer = elements.vendorModal.querySelector('#modal-vendor-tags'); tagsContainer.innerHTML = ''; if (vendor.tags) { vendor.tags.forEach(tag => { tagsContainer.innerHTML += `<span class="vendor-tag ${tag.startsWith('new')?'new':(tag.startsWith('closed:')?'closed':'')}">${tag.replace('closed:','')}</span>`; }); } elements.vendorModal.querySelector('#modal-vendor-info').textContent = vendor.info || '無'; const menuContainer = elements.vendorModal.querySelector('#modal-vendor-menu'); if (vendor.menu?.length > 0) { menuContainer.className = 'modal-menu-grid'; menuContainer.innerHTML = ''; vendor.menu.forEach(item => { if (item.type === 'subtitle') { menuContainer.innerHTML += `<h4 class="modal-menu-subtitle">${item.text}</h4>`; } else { menuContainer.innerHTML += `<div class="modal-menu-item"><span class="modal-menu-name">${item.name}</span><span class="modal-menu-price">${(item.price === undefined || item.price === null) ? '' : `$${item.price}`}</span></div>`; } }); } else { menuContainer.className = 'modal-placeholder'; menuContainer.innerHTML = '菜單資訊準備中'; } openModal('vendor-modal'); }
+    function initDynamicBackground() { if(!elements.menuBackgroundContainer || elements.menuBackgroundContainer.childElementCount>0) return; const images=['https://images.unsplash.com/photo-1512152272829-e3139592d56f?q=80&w=2940&auto=format&fit=crop','https://images.unsplash.com/photo-1552611052-33e04de081de?q=80&w=2864&auto=format&fit=crop']; images.forEach(src=>{const d=document.createElement('div'); d.className='bg-image'; d.style.backgroundImage=`url(${src})`; elements.menuBackgroundContainer.appendChild(d);}); elements.menuBackgroundContainer.style.display='block'; let idx=0; const changeBg=()=>{if(document.getElementById('page-menu').classList.contains('page-active')){const imgs=elements.menuBackgroundContainer.querySelectorAll('.bg-image'); imgs.forEach(img=>img.classList.remove('active'));imgs[idx].classList.add('active');idx=(idx+1)%imgs.length;}};changeBg();setInterval(changeBg,7000); }
     
-    // ================== 應用程式初始化 ==================
-    function main() {
-        Auth.init();
-        initNotifications();
-        bindEvents();
-        setupOfficialWebsiteJS();
-        updateUserInfoBar();
-        switchPage('page-home');
-    }
-
+    function main() { Auth.init(); initNotifications(); bindEvents(); setupOfficialWebsiteJS(); updateUserInfoBar(); switchPage('page-home'); }
     main();
 });
