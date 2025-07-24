@@ -87,7 +87,35 @@ document.addEventListener('DOMContentLoaded', () => {
     async function handleLogin() { const u = elements.loginUsernameInput.value.trim(); const p = elements.loginPasswordInput.value.trim(); if (!u||!p) return alert('不能為空！'); try { const res = await fetch(`${API_BASE_URL}/api/auth/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})}); const data=await res.json(); if(res.ok){Auth.save(data.token,data.user);updateUserInfoBar();switchPage('page-customer-service');}else{alert(`失敗：${data.message}`);} } catch (e) { alert('請求失敗'); } }
     function handleLogout() { Auth.clear(); updateUserInfoBar(); stopChatSession(); switchPage('page-home'); alert('已登出'); }
     async function handleChangePassword(e) { e.preventDefault(); const op=elements.oldPasswordInput.value, np=elements.newPasswordInput.value, cp=elements.confirmPasswordInput.value; if(np!==cp){elements.passwordErrorMsg.textContent='新密碼不相符';return;} elements.passwordErrorMsg.textContent=''; try { const res=await fetch(`${API_BASE_URL}/api/user/change-password`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':state.token},body:JSON.stringify({oldPassword:op,newPassword:np})}); const result=await res.json(); if(result.success){alert("修改成功");closeModal('change-password-modal');elements.changePasswordForm.reset();}else{elements.passwordErrorMsg.textContent=`失敗: ${result.message}`;}} catch(err){elements.passwordErrorMsg.textContent=`網路錯誤`;}}
-    async function fetchAndShowTransactions() { try { const res = await (await fetch(`${API_BASE_URL}/api/user/transactions`,{headers:{'Authorization':state.token}})).json(); if(res.success){renderTransactions(res.transactions);openModal('transactions-modal');}else{alert("無法獲取紀錄");}} catch(e){alert("網路錯誤");} }
+    async function fetchAndShowTransactions() {
+    try {
+        const res = await (await fetch(`${API_BASE_URL}/api/user/transactions`, { headers: { 'Authorization': state.token } })).json();
+        if (res.success) {
+            // ★ START: 餘額更新邏輯 ★
+            if (res.transactions && res.transactions.length > 0) {
+                // 取得最後一筆交易紀錄的餘額，這就是最新的餘額
+                const latestBalance = res.transactions[res.transactions.length - 1].resultingBalance;
+                
+                // 如果前端顯示的餘額與最新餘額不符，就進行更新
+                if (state.user.balance !== latestBalance) {
+                    state.user.balance = latestBalance;
+                    // 使用 Auth.save 更新 state 及 localStorage
+                    Auth.save(state.token, state.user);
+                    // 更新側邊欄的畫面顯示
+                    updateUserInfoBar(); 
+                }
+            }
+            // ★ END: 餘額更新邏輯 ★
+
+            renderTransactions(res.transactions);
+            openModal('transactions-modal');
+        } else {
+            alert("無法獲取紀錄");
+        }
+    } catch (e) {
+        alert("網路錯誤");
+    }
+}
     function renderTransactions(transactions) { let html=`<table><thead><tr><th>日期</th><th>事由</th><th>金額變動</th><th>帳戶餘額</th></tr></thead><tbody>`; transactions.slice().reverse().forEach(t=>{const c=t.amount>=0?'positive':'negative';const s=t.amount>0?'+':'';html+=`<tr><td>${new Date(t.date).toLocaleDateString()}</td><td>${t.description}</td><td class="amount-${c}">${s}${t.amount}</td><td>$${t.resultingBalance}</td></tr>`;});html+=`</tbody></table>`;elements.transactionModalBody.innerHTML=html;}
     function startChatSession() { if(state.chatInterval)clearInterval(state.chatInterval); fetchChatMessages(); state.chatInterval = setInterval(fetchChatMessages, 5000); }
     function stopChatSession() { clearInterval(state.chatInterval); }
