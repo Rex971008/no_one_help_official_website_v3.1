@@ -21,7 +21,6 @@ body {
     background-color: var(--bg-color);
     color: var(--text-color);
     line-height: 1.7;
-    overflow-x: hidden;
     position: relative;
 }
 
